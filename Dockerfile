@@ -1,4 +1,4 @@
-FROM node:9.3-alpine
+FROM node:11.7-alpine
 RUN mkdir -p /mustachebash
 WORKDIR /mustachebash
 COPY package.json package-lock.json ./
