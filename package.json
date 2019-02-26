@@ -1,6 +1,6 @@
 {
   "name": "mustachebash-api",
-  "version": "1.4.3",
+  "version": "1.5.4",
   "description": "Mustache Bash API",
   "main": "lib/index.js",
   "private": true,
