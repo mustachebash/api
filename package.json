@@ -21,6 +21,7 @@
     "mailchimp-api-v3": "^1.13.1",
     "mailgun-js": "^0.22.0",
     "paul-revere": "^2.2.1",
+    "pdfkit": "^0.11.0",
     "qrcode": "^1.4.4",
     "response-time": "^2.3.2",
     "rethinkdb": "^2.3.3",
