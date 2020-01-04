@@ -1,7 +1,7 @@
 FROM node:12.13-alpine
 RUN mkdir -p /mustachebash
 WORKDIR /mustachebash
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json ticket-logo.png ./
 RUN npm install --production --no-optional && \
 	npm cache clean --force
 

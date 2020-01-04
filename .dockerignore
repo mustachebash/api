@@ -3,3 +3,4 @@
 .eslintrc.js
 README.md
 Dockerfile
+scripts/
