@@ -1,11 +1,9 @@
-FROM node:11.7-alpine
+FROM node:12.13-alpine
 RUN mkdir -p /mustachebash
 WORKDIR /mustachebash
-COPY package.json package-lock.json ./
-RUN apk add --no-cache python make g++ && \
-	npm install --production --no-optional && \
-	npm cache clean --force && \
-	apk del --purge python make g++
+COPY package.json package-lock.json ticket-logo.png ./
+RUN npm install --production --no-optional && \
+	npm cache clean --force
 
 COPY lib lib
 EXPOSE 4000
