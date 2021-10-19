@@ -1,4 +1,4 @@
-FROM node:12.13-alpine
+FROM node:16.11-alpine
 RUN mkdir -p /mustachebash
 WORKDIR /mustachebash
 COPY package.json package-lock.json ticket-logo.png ./
