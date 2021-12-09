@@ -3,8 +3,6 @@ const crypto = require('crypto'),
 	MailChimpClient = require('mailchimp-api-v3'),
 	[,, apiKey, listId, eventId] = process.argv;
 
-// 90392ecd5e
-// 34a99b2a-f826-406a-8227-921efd03ebff
 const mailchimp = new MailChimpClient(apiKey),
 	md5 = string => crypto.createHash('md5').update(string).digest('hex'),
 	capitalize = string => string[0].toUpperCase() + string.slice(1).toLowerCase();
