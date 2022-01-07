@@ -8,7 +8,7 @@ const gateway = new braintree.BraintreeGateway({
 	privateKey: process.env.BRAINTREE_PRIVATE_KEY
 });
 
-async function batchRefunds() {
+async function batchVoids() {
 	let conn;
 	try {
 		conn = await r.connect({
@@ -18,11 +18,11 @@ async function batchRefunds() {
 		const braintreeIds = [];
 		await new Promise((resolve, reject) => {
 			const searchStream = gateway.transaction.search(search => {
-				search.type().is(braintree.Transaction.Type.Credit);
+				search.status().is(braintree.Transaction.Status.Voided);
 			});
 
 			searchStream.on('data', transaction => {
-				braintreeIds.push(transaction.refundedTransactionId);
+				braintreeIds.push(transaction.id);
 			});
 			searchStream.on('error', reject);
 			searchStream.on('end', () => {
@@ -30,20 +30,20 @@ async function batchRefunds() {
 			});
 		});
 
-		// Mark the transactions as refunded in our system, disable the guests and tickets
+		// Mark the transactions as voided in our system, disable the guests and tickets
 		const updated = r.now(),
 			transactionIds = await r.table('transactions').getAll(r.args(braintreeIds), {index: 'braintreeTransactionId'})('id').run(conn).then(cursor => cursor.toArray()),
 			guestsQuery = r.table('guests').getAll(r.args(transactionIds), {index: 'transactionId'});
 
 		await Promise.all([
-			r.table('transactions').getAll(r.args(transactionIds)).update({status: 'refunded', updatedBy: 'batch.refund', updated}).run(conn),
-			guestsQuery.update({status: 'archived', updatedBy: 'batch.refund', updated}).run(conn),
+			r.table('transactions').getAll(r.args(transactionIds)).update({status: 'voided', updatedBy: 'batch.void', updated}).run(conn),
+			guestsQuery.update({status: 'archived', updatedBy: 'batch.void', updated}).run(conn),
 			r.table('tickets')
 				.getAll(
 					r.args(guestsQuery('id').coerceTo('array')),
 					{index: 'guestId'}
 				)
-				.update({status: 'disabled', updatedBy: 'batch.refund', updated}).run(conn)
+				.update({status: 'disabled', updatedBy: 'batch.void', updated}).run(conn)
 		]);
 
 		console.log('Complete!');
@@ -54,4 +54,4 @@ async function batchRefunds() {
 	}
 }
 
-batchRefunds();
+batchVoids();
