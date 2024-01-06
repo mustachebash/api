@@ -1,10 +1,6 @@
 module.exports = {
 	"parserOptions": {
-		"ecmaVersion": 9,
-		"ecmaFeatures": {
-			"impliedStrict": true,
-			experimentalObjectRestSpread: true
-		}
+		"ecmaVersion": 2022
 	},
 	"globals": {
 		"describe": false,
