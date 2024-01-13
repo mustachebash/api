@@ -1,8 +1,8 @@
-FROM node:20.10-alpine3.19
+FROM --platform=linux/amd64 node:20.10-alpine3.19
 RUN mkdir -p /mustachebash
 WORKDIR /mustachebash
-COPY package.json package-lock.json ticket-logo.png ./
-RUN npm install --production --no-optional && \
+COPY package.json package-lock.json ./
+RUN NODE_ENV=production npm ci --include=prod --no-optional && \
 	npm --silent cache clean --force
 
 COPY lib lib
