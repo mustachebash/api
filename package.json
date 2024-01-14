@@ -23,7 +23,6 @@
     "mailchimp-api-v3": "^1.15.0",
     "mailgun-js": "^0.22.0",
     "mv": "^2.1.1",
-    "paul-revere": "^2.2.1",
     "pino": "^6.13.3",
     "postgres": "^3.4.3",
     "qrcode": "^1.5.0",
