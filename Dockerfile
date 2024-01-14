@@ -1,4 +1,4 @@
-FROM --platform=linux/amd64 node:20.10-alpine3.19
+FROM node:20.10-alpine3.19
 RUN mkdir -p /mustachebash
 WORKDIR /mustachebash
 COPY package.json package-lock.json ./
