@@ -7,7 +7,7 @@ import jwt from 'jsonwebtoken';
 import { v4 as uuidV4 } from 'uuid';
 import { OAuth2Client} from 'google-auth-library';
 import { sql } from '../utils/db.js';
-import config from '../config.js';
+import * as config from '../config.js';
 
 const googleAuthClient = new OAuth2Client();
 

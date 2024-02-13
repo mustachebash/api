@@ -4,7 +4,7 @@
  */
 
 import crypto from 'crypto';
-import config from '../config.js';
+import * as config from '../config.js';
 import log from '../utils/log.js';
 import MailgunJs from 'mailgun-js';
 import MailChimpClient from 'mailchimp-api-v3';
