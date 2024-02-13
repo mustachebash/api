@@ -1,15 +1,45 @@
 import Koa from 'koa';
+import type { DefaultState, Next, ParameterizedContext, Middleware, Context, HttpError } from 'koa';
 import Router from '@koa/router';
 import bodyParser from 'koa-bodyparser';
 import cors from '@koa/cors';
 import { v4 as uuidV4 } from 'uuid';
-import log from './utils/log.js';
+import log, { Logger } from './utils/log.js';
 import apiRouter from './routes/index.js';
 
+type JSONValue = string | number | boolean | null | { [x: string]: JSONValue | unknown } | Array<JSONValue>;
+
+interface MustacheBashState extends DefaultState {
+	user: User;
+	accessToken: string;
+	requestId: string;
+	log: Logger;
+}
+
+interface MustacheBashContext extends Context {
+	// prevent accidental usage at the wrong level (since ctx string indexes are typed as "any")
+	log: never;
+	user: never;
+
+	body: JSONValue;
+}
+
+// type AppState = {
+// 	responseTime: number;
+// };
+
 // Create the Koa instance
-const app = new Koa(),
-	appRouter = new Router(),
-	npmPackageVersion = process.env.npm_package_version || 'UNKNOWN';
+const app = new Koa<MustacheBashState, MustacheBashContext>(),
+	npmPackageVersion: string = process.env.npm_package_version as string;
+
+/**
+ * Export some types for usage in middleware and routers
+ */
+export type AppContext = ParameterizedContext<MustacheBashState, MustacheBashContext, JSONValue>;
+export type AppMiddleware = Middleware<MustacheBashState, MustacheBashContext, JSONValue>;
+export { Next };
+
+const appRouter = new Router<AppContext['state'], AppContext>();
 
 // App setup
 app.proxy = true;
@@ -28,7 +58,7 @@ app.use(async (ctx, next) => {
  * Attach a request id from downstream, or create one
  */
 app.use(async (ctx, next) => {
-	ctx.requestId = (typeof ctx.headers['request-id'] === 'string' && ctx.headers['request-id']) || uuidV4();
+	ctx.state.requestId = (typeof ctx.headers['request-id'] === 'string' && ctx.headers['request-id']) || uuidV4();
 
 	await next();
 });
@@ -98,18 +128,18 @@ app.use(
 
 /**
  * Attach the logger middleware
- * This will give middleware and route handlers access to ctx.log,
+ * This will give middleware and route handlers access to ctx.state.log,
  * a child logger for each request
  */
 app.use(async (ctx, next) => {
-	ctx.log = log.child({requestId: ctx.requestId});
+	ctx.state.log = log.child({requestId: ctx.requestId});
 
 	await next();
 
 	const { request, response } = ctx,
 		message = `${request.method} ${request.originalUrl} ${response.status}`;
 
-	ctx.log.info({request, response, ctx}, message);
+	ctx.state.log.info({request, response, ctx}, message);
 });
 
 /**
@@ -122,10 +152,9 @@ app.use(async (ctx, next) => {
 	try {
 		await next();
 	} finally {
-		const [ seconds, nanoseconds ] = process.hrtime(start),
-			{ response } = ctx;
+		const [ seconds, nanoseconds ] = process.hrtime(start);
 
-		response.responseTime = seconds * 1e3 + nanoseconds * 1e-6;
+		ctx.state.responseTime = seconds * 1e3 + nanoseconds * 1e-6;
 	}
 });
 
@@ -154,9 +183,9 @@ app.on('error', (err, ctx) => {
 	response.status = err.status || response.status;
 
 	if(err.status < 500) {
-		ctx.log.warn({request, response, ctx, err}, `${request.method} ${request.originalUrl} ${response.status} - ${err.message}`);
+		ctx.state.log.warn({request, response, ctx, err}, `${request.method} ${request.originalUrl} ${response.status} - ${err.message}`);
 	} else {
-		ctx.log.error({request, response, ctx, err}, err.message);
+		ctx.state.log.error({request, response, ctx, err}, err.message);
 	}
 });
 

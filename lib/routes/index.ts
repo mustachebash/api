@@ -2,22 +2,22 @@
  * API Router handles entity routing and miscellaneous
  * @type {Express Router}
  */
-const Router = require('@koa/router'),
-	{ authorizeUser, requiresPermission } = require('../middleware/auth'),
-	{ authenticateUser, authenticateGoogleUser, refreshAccessToken } = require('../services/auth'),
-	{ getEventSettings } = require('../services/events'),
-	{ validateOrderToken } = require('../services/orders'),
-	{ checkInWithTicket, getCustomerActiveTicketsByOrderId } = require('../services/tickets'),
-	customersRouter = require('./customers'),
-	ordersRouter = require('./orders'),
-	transactionsRouter = require('./transactions'),
-	sitesRouter = require('./sites'),
-	eventsRouter = require('./events'),
-	productsRouter = require('./products'),
-	promosRouter = require('./promos'),
-	guestsRouter = require('./guests'),
-	usersRouter = require('./users');
-const { getCustomer } = require('../services/customers');
+import Router from '@koa/router';
+import { authorizeUser, requiresPermission } from '../middleware/auth.js';
+import { authenticateUser, authenticateGoogleUser, refreshAccessToken } from '../services/auth.js';
+import { getEventSettings } from '../services/events.js';
+import { validateOrderToken } from '../services/orders.js';
+import { checkInWithTicket, getCustomerActiveTicketsByOrderId } from '../services/tickets.js';
+import customersRouter from './customers.js';
+import ordersRouter from './orders.js';
+import transactionsRouter from './transactions.js';
+import sitesRouter from './sites.js';
+import eventsRouter from './events.js';
+import productsRouter from './products.js';
+import promosRouter from './promos.js';
+import guestsRouter from './guests.js';
+import usersRouter from './users.js';
+import { getCustomer } from '../services/customers.js';
 
 const apiRouter = new Router();
 
@@ -186,4 +186,4 @@ apiRouter
 		return ctx.status = 204;
 	});
 
-module.exports = apiRouter;
+export default apiRouter;
