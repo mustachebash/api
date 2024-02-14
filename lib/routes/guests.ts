@@ -7,7 +7,7 @@ import {
 	getCurrentGuestTicketQrCode,
 	updateGuest,
 	archiveGuest
-} from '../services/guests';
+} from '../services/guests.js';
 
 const guestsRouter = new Router({
 	prefix: '/guests'
