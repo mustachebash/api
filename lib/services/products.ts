@@ -7,7 +7,10 @@ import { sql } from '../utils/db.js';
 import { v4 as uuidV4 } from 'uuid';
 
 class ProductsServiceError extends Error {
-	constructor(message = 'An unknown error occured', code = 'UNKNOWN', context) {
+	code: string;
+	context: unknown;
+
+	constructor(message = 'An unknown error occured', code = 'UNKNOWN', context?: unknown) {
 		super(message);
 
 		this.name = this.constructor.name;
@@ -27,6 +30,7 @@ const productColumns = [
 	'admission_tier',
 	'price',
 	'event_id',
+	'target_product_id',
 	'promo',
 	'max_quantity',
 	'created',
@@ -35,14 +39,30 @@ const productColumns = [
 	'meta'
 ];
 
-const convertPriceToNumber = p => ({...p, ...(typeof p.price === 'string' ? {price: Number(p.price)} : {})});
+const convertPriceToNumber = (p: Record<string, unknown>) => ({...p, ...(typeof p.price === 'string' ? {price: Number(p.price)} : {})});
 
-export async function createProduct({ price, name, description, type, eventId, admissionTier, promo, meta }) {
+type ProductType = 'ticket' | 'upgrade' | 'accomodation';
+type AdmissionTier = 'general' | 'vip' | 'sponsor' | 'stachepass';
+type Product = {
+	id: string;
+	price: number;
+	name: string;
+	description: string;
+	type: ProductType;
+	eventId: string;
+	admissionTier: string;
+	targetProductId: string;
+	promo: boolean;
+	meta: Record<string, unknown>;
+};
+
+export async function createProduct({ price, name, description, type, eventId, admissionTier, targetProductId, promo, meta }: Omit<Product, 'id'>) {
 	if(!name || !description || !type) throw new ProductsServiceError('Missing product data', 'INVALID');
 	if(typeof price !== 'number') throw new ProductsServiceError('Price must be a number', 'INVALID');
 	if(type === 'ticket' && (!eventId || !admissionTier)) throw new ProductsServiceError('No event set for ticket', 'INVALID');
+	if(type === 'upgrade' && (!targetProductId || !admissionTier)) throw new ProductsServiceError('No product target set for ticket upgrade', 'INVALID');
 
-	const product = {
+	const product: Product = {
 		id: uuidV4(),
 		price,
 		name,
@@ -59,6 +79,12 @@ export async function createProduct({ price, name, description, type, eventId, a
 		product.promo = Boolean(promo);
 	}
 
+	if(type === 'upgrade') {
+		product.targetProductId = targetProductId;
+		product.admissionTier = admissionTier;
+		product.promo = Boolean(promo);
+	}
+
 	try {
 		const [createdProduct] = (await sql`
 			INSERT INTO products ${sql(product)}
@@ -71,7 +97,7 @@ export async function createProduct({ price, name, description, type, eventId, a
 	}
 }
 
-export async function getProducts({eventId}) {
+export async function getProducts({eventId}: {eventId?: string} = {}) {
 	try {
 		const products = await sql`
 			SELECT ${sql(productColumns)}
@@ -85,7 +111,7 @@ export async function getProducts({eventId}) {
 	}
 }
 
-export async function getProduct(id) {
+export async function getProduct(id: string) {
 	let product;
 	try {
 		[product] = (await sql`
@@ -102,7 +128,7 @@ export async function getProduct(id) {
 	return product;
 }
 
-export async function updateProduct(id, updates) {
+export async function updateProduct(id: string, updates: Record<string, unknown>) {
 	for(const u in updates) {
 		// Update whitelist
 		if(![

@@ -25,7 +25,7 @@ guestsRouter
 			ctx.throw(e);
 		}
 	})
-	.post('/', requiresPermission('admin'), async ctx => {
+	.post('/', requiresPermission('write'), async ctx => {
 		try {
 			const guest = await createGuest({...ctx.request.body, createdBy: ctx.user.id, createdReason: 'comp'});
 

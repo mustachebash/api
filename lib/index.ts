@@ -1,11 +1,11 @@
 import Koa from 'koa';
-import type { DefaultState, Next, ParameterizedContext, Middleware, Context, HttpError } from 'koa';
+import type { DefaultState, ParameterizedContext, Middleware, Context, Next } from 'koa';
 import Router from '@koa/router';
 import bodyParser from 'koa-bodyparser';
 import cors from '@koa/cors';
 import { v4 as uuidV4 } from 'uuid';
-import log from './utils/log.js';
-import type { Logger } from './utils/log.js';
+import log, { Logger } from './utils/log.js';
+import type { User } from './services/auth.js';
 import apiRouter from './routes/index.js';
 
 type JSONValue = string | number | boolean | null | { [x: string]: JSONValue | unknown } | Array<JSONValue>;

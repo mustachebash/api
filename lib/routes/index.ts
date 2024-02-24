@@ -4,7 +4,7 @@
  */
 import Router from '@koa/router';
 import { authorizeUser, requiresPermission } from '../middleware/auth.js';
-import { authenticateUser, authenticateGoogleUser, refreshAccessToken } from '../services/auth.js';
+import { authenticateGoogleUser, refreshAccessToken } from '../services/auth.js';
 import { getEventSettings } from '../services/events.js';
 import { validateOrderToken } from '../services/orders.js';
 import { checkInWithTicket, getCustomerActiveTicketsByOrderId } from '../services/tickets.js';
@@ -30,6 +30,10 @@ apiRouter.use(productsRouter.routes());
 apiRouter.use(promosRouter.routes());
 apiRouter.use(guestsRouter.routes());
 apiRouter.use(usersRouter.routes());
+
+function isObjectBody(body: unknown): body is Record<string, unknown> {
+	return typeof body === 'object' && body !== null && !Array.isArray(body);
+}
 
 // TODO: add route access to get all current `customer` orders
 // /v1/me/orders?token=<customer "access" token>
@@ -118,21 +122,16 @@ apiRouter
 
 apiRouter
 	.post('/authenticate', async ctx => {
-		if(
-			(!ctx.request.body.username || !ctx.request.body.password) &&
-			!ctx.request.body.token
-		) ctx.throw(400);
+		const requestBody = ctx.request.body;
+		if(!isObjectBody(requestBody)) throw ctx.throw(400);
+		if(typeof requestBody.token !== 'string') throw ctx.throw(400);
+		if(typeof requestBody.authority !== 'string') throw ctx.throw(400);
 
 		try {
 			let user;
-			switch(ctx.request.body.authority) {
+			switch(requestBody.authority) {
 				case 'google':
-					user = await authenticateGoogleUser(ctx.request.body.token);
-					break;
-
-				case 'email':
-				default:
-					user = await authenticateUser(ctx.request.body.username, ctx.request.body.password);
+					user = await authenticateGoogleUser(requestBody.token);
 					break;
 			}
 
@@ -146,10 +145,12 @@ apiRouter
 
 apiRouter
 	.post('/refresh-access-token', async ctx => {
-		if(!ctx.request.body.refreshToken) ctx.throw(403);
+		const requestBody = ctx.request.body;
+		if(!isObjectBody(requestBody)) throw ctx.throw(400);
+		if(typeof requestBody.refreshToken !== 'string') throw ctx.throw(400);
 
 		try {
-			const accessToken = await refreshAccessToken(ctx.request.body.refreshToken);
+			const accessToken = await refreshAccessToken(requestBody.refreshToken);
 
 			ctx.status = 201;
 			return ctx.body = {accessToken};

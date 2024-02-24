@@ -10,6 +10,11 @@ export const postgres = {
 	database: process.env.POSTGRES_DATABASE
 }
 
+if(
+	!process.env.JWT_SECRET ||
+	!process.env.JWT_ORDER_SECRET ||
+	!process.env.JWT_TICKET_SECRET
+) throw new Error('JWT config is not set');
 export const jwt = {
 	secret: process.env.JWT_SECRET,
 	orderSecret: process.env.JWT_ORDER_SECRET,

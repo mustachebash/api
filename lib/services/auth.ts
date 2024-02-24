@@ -3,16 +3,26 @@
  * Handles user authentication and authorization, as well as user management
  * @type {object}
  */
-import jwt from 'jsonwebtoken';
+import jwt, { JwtPayload } from 'jsonwebtoken';
 import { v4 as uuidV4 } from 'uuid';
-import { OAuth2Client} from 'google-auth-library';
+import { OAuth2Client, TokenPayload} from 'google-auth-library';
 import { sql } from '../utils/db.js';
 import * as config from '../config.js';
 
 const googleAuthClient = new OAuth2Client();
 
+export type User = {
+	id: string;
+	displayName: string;
+	role: string;
+	subClaim: string;
+};
+
 class AuthServiceError extends Error {
-	constructor(message = 'An unknown error occured', code = 'UNKNOWN', context) {
+	code: string;
+	context: unknown;
+
+	constructor(message = 'An unknown error occured', code = 'UNKNOWN', context?: unknown) {
 		super(message);
 
 		this.name = this.constructor.name;
@@ -23,7 +33,7 @@ class AuthServiceError extends Error {
 	}
 }
 
-function generateAccessToken(user) {
+function generateAccessToken(user: User) {
 	return jwt.sign({
 		exp: Math.floor(Date.now()/1000) + (60*20), // In seconds, 20m expiration
 		iss: 'mustachebash',
@@ -34,7 +44,7 @@ function generateAccessToken(user) {
 	config.jwt.secret);
 }
 
-function generateRefreshToken(user, jti) {
+function generateRefreshToken(user: User, jti: string) {
 	return jwt.sign({
 		exp: Math.floor(Date.now()/1000) + (60*60*24*30), // In seconds, 30d expiration
 		iss: 'mustachebash',
@@ -45,57 +55,14 @@ function generateRefreshToken(user, jti) {
 	config.jwt.secret);
 }
 
-function validateRefreshToken(refreshToken) {
+function validateRefreshToken(refreshToken: string) {
 	return jwt.verify(refreshToken, config.jwt.secret, {issuer: 'mustachebash', audience: 'mustachebash-refresh'});
 }
 
-
-export async function authenticateUser(username, password) {
-	if(!username || !password) throw new AuthServiceError('Missing username and/or password', 'UNAUTHORIZED');
-	if(!/@mustachebash\.com$/.test(username)) throw new AuthServiceError('Cannot use email/password to log in', 'UNAUTHORIZED');
-
-	let user;
-	try {
-		[user] = await sql`
-			SELECT id, display_name, role, password
-			FROM users
-			WHERE username = ${username}
-		`;
-	} catch(e) {
-		throw new AuthServiceError('Failed to query for user', 'DB_ERROR', e);
-	}
-
-	if (!user) throw new AuthServiceError('No user found', 'UNAUTHORIZED');
-	// Prevent users of different authorities from logging in via email/password
-	if (user.authority !== 'email') throw new AuthServiceError('Cannot use email/password to log in', 'UNAUTHORIZED');
-
-	const authenticated = await bcrypt.compare(password, user.password);
-
-	if(!authenticated) throw new AuthServiceError('Invalid password', 'UNAUTHORIZED');
-
-	const accessToken = generateAccessToken(user);
-
-	let refreshToken;
-	try {
-		const jti = uuidV4();
-		refreshToken = generateRefreshToken(user, jti);
-
-		await sql`
-			UPDATE users
-			SET refresh_token_id = ${jti}
-			WHERE id = ${user.id}
-		`;
-	} catch(e) {
-		throw new AuthServiceError('Failed to save refreshTokenId', 'DB_ERROR', e);
-	}
-
-	return {accessToken, refreshToken};
-}
-
-export async function authenticateGoogleUser(token) {
+export async function authenticateGoogleUser(token: string) {
 	if(!token) throw new AuthServiceError('Missing token', 'UNAUTHORIZED');
 
-	let payload, googleUserId;
+	let payload: TokenPayload | undefined, googleUserId: string | null;
 	try {
 		const ticket = await googleAuthClient.verifyIdToken({
 			idToken: token,
@@ -108,17 +75,19 @@ export async function authenticateGoogleUser(token) {
 		throw new AuthServiceError(e.message, 'UNAUTHORIZED');
 	}
 
+	if(!payload || !googleUserId) throw new AuthServiceError('Invalid token', 'UNAUTHORIZED');
+
 	// Only org users are allowed
 	if(payload['hd'] !== 'mustachebash.com') throw new AuthServiceError('Invalid email domain', 'UNAUTHORIZED');
 	if(['115750122407052152212'].includes(googleUserId)) throw new AuthServiceError('Disallowed user', 'UNAUTHORIZED');
 
-	let user;
+	let user: User;
 	try {
-		[user] = await sql`
+		[user] = await sql<User[]>`
 			SELECT id, display_name, role, sub_claim
 			FROM users
 			WHERE sub_claim = ${googleUserId} OR
-				(sub_claim IS NULL AND username = ${payload['email']})
+				(sub_claim IS NULL AND username = ${payload['email'] ?? ''})
 		`;
 	} catch(e) {
 		throw new AuthServiceError('Failed to query for user', 'DB_ERROR', e);
@@ -126,8 +95,10 @@ export async function authenticateGoogleUser(token) {
 
 	// Autoinsert the user, since we've verified they're in the org
 	if(!user) {
+		if(!payload['email'] || !payload['name']) throw new AuthServiceError('Missing user data', 'UNAUTHORIZED');
+
 		try {
-			const newUser = await sql`
+			([user] = await sql<User[]>`
 				INSERT INTO users (
 					id,
 					username,
@@ -144,9 +115,7 @@ export async function authenticateGoogleUser(token) {
 					'google'
 				)
 				RETURNING id, display_name, role, sub_claim
-			`;
-
-			user = newUser[0];
+			`);
 		} catch(e) {
 			throw new AuthServiceError('Failed to create new user', 'DB_ERROR', e);
 		}
@@ -163,7 +132,7 @@ export async function authenticateGoogleUser(token) {
 
 	const accessToken = generateAccessToken(user);
 
-	let refreshToken;
+	let refreshToken: string;
 	try {
 		const jti = uuidV4();
 		refreshToken = generateRefreshToken(user, jti);
@@ -180,8 +149,8 @@ export async function authenticateGoogleUser(token) {
 	return {accessToken, refreshToken};
 }
 
-export async function refreshAccessToken(refreshToken) {
-	let sub, jti;
+export async function refreshAccessToken(refreshToken: string) {
+	let sub: string, jti: string;
 	try {
 		({ sub, jti } = validateRefreshToken(refreshToken));
 	} catch(e) {
@@ -205,11 +174,11 @@ export async function refreshAccessToken(refreshToken) {
 	return generateAccessToken(user);
 }
 
-export function validateAccessToken(accessToken) {
+export function validateAccessToken(accessToken: string) {
 	return jwt.verify(accessToken, config.jwt.secret, {issuer: 'mustachebash'});
 }
 
-export function checkScope(userRole, scopeRequired) {
+export function checkScope(userRole: string, scopeRequired: string) {
 	const roles = [
 		'root',
 		'god',
@@ -238,7 +207,7 @@ export async function getUsers() {
 	return users;
 }
 
-export async function getUser(id) {
+export async function getUser(id: string) {
 	let user;
 	try {
 		[user] = await sql`
