@@ -14,7 +14,7 @@ promosRouter
 
 			return ctx.body = promos;
 		} catch(e) {
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	})
 	.post('/', authorizeUser, requiresPermission('write'), async ctx => {
@@ -25,9 +25,9 @@ promosRouter
 			ctx.status= 201;
 			return ctx.body = promo;
 		} catch(e) {
-			if(e.code === 'INVALID') ctx.throw(400);
+			if(e.code === 'INVALID') throw ctx.throw(400);
 
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	});
 
@@ -37,15 +37,15 @@ promosRouter
 		try {
 			const promo = await getPromo(ctx.params.id);
 
-			if(!promo) ctx.throw(404);
+			if(!promo) throw ctx.throw(404);
 			// If the promo has been used, return 410 GONE
-			if(promo.status !== 'active') ctx.throw(410);
+			if(promo.status !== 'active') throw ctx.throw(410);
 
 			const product = await getProduct(promo.productId);
 			delete promo.productId;
 
 			// if the product is no longer available, return 410 GONE
-			if(product.status !== 'active') ctx.throw(410);
+			if(product.status !== 'active') throw ctx.throw(410);
 
 			promo.product = {
 				id: product.id,
@@ -56,7 +56,7 @@ promosRouter
 
 			return ctx.body = promo;
 		} catch(e) {
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	})
 	.delete('/:id', authorizeUser, requiresPermission('write'), async ctx => {
@@ -65,9 +65,9 @@ promosRouter
 
 			return ctx.body = promo;
 		} catch(e) {
-			if(e.code === 'INVALID') ctx.throw(400);
+			if(e.code === 'INVALID') throw ctx.throw(400);
 
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	});
 

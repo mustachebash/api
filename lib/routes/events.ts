@@ -15,7 +15,7 @@ eventsRouter
 
 			return ctx.body = events;
 		} catch(e) {
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	})
 	.post('/', requiresPermission('admin'), async ctx => {
@@ -24,9 +24,9 @@ eventsRouter
 
 			return ctx.body = event;
 		} catch(e) {
-			if(e.code === 'INVALID') ctx.throw(400);
+			if(e.code === 'INVALID') throw ctx.throw(400);
 
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	});
 
@@ -37,9 +37,9 @@ eventsRouter
 
 			return ctx.body = event;
 		} catch(e) {
-			if(e.code === 'NOT_FOUND') ctx.throw(404);
+			if(e.code === 'NOT_FOUND') throw ctx.throw(404);
 
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	})
 	.patch('/:id', requiresPermission('admin'), async ctx => {
@@ -48,9 +48,9 @@ eventsRouter
 
 			return ctx.body = event;
 		} catch(e) {
-			if(e.code === 'INVALID') ctx.throw(400);
+			if(e.code === 'INVALID') throw ctx.throw(400);
 
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	});
 
@@ -59,11 +59,11 @@ eventsRouter
 		try {
 			const eventSummary = await getEventSummary(ctx.params.id);
 
-			if(!eventSummary) ctx.throw(404);
+			if(!eventSummary) throw ctx.throw(404);
 
 			return ctx.body = eventSummary;
 		} catch(e) {
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	});
 
@@ -72,11 +72,11 @@ eventsRouter
 		try {
 			const eventExtendedStats = await getEventExtendedStats(ctx.params.id);
 
-			if(!eventExtendedStats) ctx.throw(404);
+			if(!eventExtendedStats) throw ctx.throw(404);
 
 			return ctx.body = eventExtendedStats;
 		} catch(e) {
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	});
 
@@ -100,11 +100,11 @@ eventsRouter
 					break;
 			}
 
-			if(!chartData) ctx.throw(404);
+			if(!chartData) throw ctx.throw(404);
 
 			return ctx.body = chartData;
 		} catch(e) {
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	});
 

@@ -20,11 +20,11 @@ ordersRouter
 
 			return ctx.body = orders;
 		} catch(e) {
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	})
 	.post('/', async ctx => {
-		if(!ctx.request.body) ctx.throw(400);
+		if(!ctx.request.body) throw ctx.throw(400);
 
 		try {
 			const { order, transaction, customer } = await createOrder({...ctx.request.body}),
@@ -48,10 +48,10 @@ ordersRouter
 			ctx.status = 201;
 			return ctx.body = {confirmationId: transaction.processorTransactionId, orderId: order.id, token: orderToken};
 		} catch(e) {
-			if(e.code === 'INVALID') ctx.throw(400, e, {expose: false});
-			if(e.code === 'GONE') ctx.throw(410, e, {expose: false});
+			if(e.code === 'INVALID') throw ctx.throw(400, e, {expose: false});
+			if(e.code === 'GONE') throw ctx.throw(410, e, {expose: false});
 
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	});
 
@@ -60,11 +60,11 @@ ordersRouter
 		try {
 			const order = await getOrder(ctx.params.id);
 
-			if(!order) ctx.throw(404);
+			if(!order) throw ctx.throw(404);
 
 			return ctx.body = order;
 		} catch(e) {
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	})
 	.delete('/:id', authorizeUser, async ctx => {
@@ -73,9 +73,9 @@ ordersRouter
 
 			return ctx.body = refundDetails;
 		} catch(e) {
-			if(e.code === 'NOT_FOUND') ctx.throw(404);
+			if(e.code === 'NOT_FOUND') throw ctx.throw(404);
 
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	});
 
@@ -86,9 +86,9 @@ ordersRouter
 
 			ctx.body = tickets;
 		} catch(e) {
-			if (e.code === 'UNAUTHORIZED') ctx.throw(401);
+			if (e.code === 'UNAUTHORIZED') throw ctx.throw(401);
 
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	});
 
@@ -99,9 +99,9 @@ ordersRouter
 
 			return ctx.body = {id: ctx.params.id, token: orderToken};
 		} catch(e) {
-			if(e.code === 'NOT_FOUND') ctx.throw(404);
+			if(e.code === 'NOT_FOUND') throw ctx.throw(404);
 
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	});
 
@@ -112,9 +112,9 @@ ordersRouter
 
 			return ctx.body = transactions;
 		} catch(e) {
-			if(e.code === 'NOT_FOUND') ctx.throw(404);
+			if(e.code === 'NOT_FOUND') throw ctx.throw(404);
 
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	});
 
@@ -125,13 +125,13 @@ ordersRouter
 
 			return ctx.body = transfers;
 		} catch(e) {
-			if(e.code === 'NOT_FOUND') ctx.throw(404);
+			if(e.code === 'NOT_FOUND') throw ctx.throw(404);
 
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	})
 	.post('/:id/transfers', authorizeUser, requiresPermission('write'), async ctx => {
-		if(!ctx.request.body) ctx.throw(400);
+		if(!ctx.request.body) throw ctx.throw(400);
 
 		try {
 			const { transferee, order } = await transferTickets(ctx.params.id, ctx.request.body, ctx.user.id),
@@ -154,10 +154,10 @@ ordersRouter
 			ctx.status = 201;
 			return ctx.body = {};
 		} catch(e) {
-			if(e.code === 'INVALID') ctx.throw(400, e, {expose: false});
-			if(e.code === 'NOT_FOUND') ctx.throw(404);
+			if(e.code === 'INVALID') throw ctx.throw(400, e, {expose: false});
+			if(e.code === 'NOT_FOUND') throw ctx.throw(404);
 
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	});
 

@@ -22,7 +22,7 @@ guestsRouter
 
 			return ctx.body = guests;
 		} catch(e) {
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	})
 	.post('/', requiresPermission('write'), async ctx => {
@@ -33,9 +33,9 @@ guestsRouter
 			ctx.status = 201;
 			return ctx.body = guest;
 		} catch(e) {
-			if(e.code === 'INVALID') ctx.throw(400);
+			if(e.code === 'INVALID') throw ctx.throw(400);
 
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	});
 
@@ -44,11 +44,11 @@ guestsRouter
 		try {
 			const guest = await getGuest(ctx.params.id);
 
-			if(!guest) ctx.throw(404);
+			if(!guest) throw ctx.throw(404);
 
 			return ctx.body = guest;
 		} catch(e) {
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	})
 	.patch('/:id', async ctx => {
@@ -57,9 +57,9 @@ guestsRouter
 
 			return ctx.body = guest;
 		} catch(e) {
-			if(e.code === 'INVALID') ctx.throw(400);
+			if(e.code === 'INVALID') throw ctx.throw(400);
 
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	})
 	.delete('/:id', async ctx => {
@@ -68,7 +68,7 @@ guestsRouter
 
 			return ctx.body = guest;
 		} catch(e) {
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	});
 
@@ -77,11 +77,11 @@ guestsRouter
 		try {
 			const qrcode = await getCurrentGuestTicketQrCode(ctx.params.id);
 
-			if(!qrcode) ctx.throw(404);
+			if(!qrcode) throw ctx.throw(404);
 
 			return ctx.body = `<img src="${qrcode}" />`;
 		} catch(e) {
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	});
 

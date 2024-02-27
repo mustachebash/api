@@ -13,7 +13,7 @@ customersRouter
 
 			return ctx.body = customers;
 		} catch(e) {
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	})
 	.post('/', authorizeUser, requiresPermission('admin'), async ctx => {
@@ -24,9 +24,9 @@ customersRouter
 			ctx.status= 201;
 			return ctx.body = customer;
 		} catch(e) {
-			if(e.code === 'INVALID') ctx.throw(400);
+			if(e.code === 'INVALID') throw ctx.throw(400);
 
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	});
 
@@ -39,9 +39,9 @@ customersRouter
 
 			return ctx.body = customer;
 		} catch(e) {
-			if(e.code === 'NOT_FOUND') ctx.throw(404);
+			if(e.code === 'NOT_FOUND') throw ctx.throw(404);
 
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	})
 	.delete('/:id', authorizeUser, requiresPermission('admin'), async ctx => {
@@ -50,9 +50,9 @@ customersRouter
 
 			return ctx.body = customer;
 		} catch(e) {
-			if(e.code === 'INVALID') ctx.throw(400);
+			if(e.code === 'INVALID') throw ctx.throw(400);
 
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	});
 

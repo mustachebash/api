@@ -15,7 +15,7 @@ usersRouter
 
 			return ctx.body = users;
 		} catch(e) {
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	});
 
@@ -24,12 +24,12 @@ usersRouter
 		try {
 			const user = await getUser(ctx.params.username);
 
-			if(!user) ctx.throw(404);
+			if(!user) throw ctx.throw(404);
 
 			delete user.password;
 			return ctx.body = user;
 		} catch(e) {
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	});
 
