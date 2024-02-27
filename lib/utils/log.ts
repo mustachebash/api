@@ -83,7 +83,6 @@ function ctxSerializer(ctx: AppContext) {
 	const ctxObj: Record<string, unknown> = {};
 
 	if(ctx._matchedRoute) ctxObj.route = ctx._matchedRoute;
-	if(ctx.expiredTokenData) ctxObj.expiredTokenData = ctx.expiredTokenData;
 	if(ctx.state.responseTime) ctxObj.responseTime = ctx.state.responseTime;
 
 	return ctxObj;

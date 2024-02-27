@@ -28,9 +28,9 @@ export async function authorizeUser(ctx, next) {
 export function requiresPermission(scopeRequired) {
 	return async (ctx, next) => {
 		// Just don't even try if it's not there
-		if(!ctx.user || !ctx.user.role) throw ctx.throw(403);
+		if(!ctx.state.user || !ctx.state.user.role) throw ctx.throw(403);
 
-		if(!checkScope(ctx.user.role, scopeRequired)) throw ctx.throw(403);
+		if(!checkScope(ctx.state.user.role, scopeRequired)) throw ctx.throw(403);
 
 		await next();
 	};

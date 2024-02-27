@@ -46,7 +46,7 @@ productsRouter
 	})
 	.patch('/:id', async ctx => {
 		try {
-			const product = await updateProduct(ctx.params.id, {...ctx.request.body, updatedBy: ctx.user.id});
+			const product = await updateProduct(ctx.params.id, {...ctx.request.body, updatedBy: ctx.state.user.id});
 
 			return ctx.body = product;
 		} catch(e) {

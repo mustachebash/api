@@ -19,7 +19,7 @@ promosRouter
 	})
 	.post('/', authorizeUser, requiresPermission('write'), async ctx => {
 		try {
-			const promo = await createPromo({...ctx.request.body, createdBy: ctx.user.id});
+			const promo = await createPromo({...ctx.request.body, createdBy: ctx.state.user.id});
 
 			ctx.set('Location', `https://${ctx.host}${ctx.path}/${promo.id}`);
 			ctx.status= 201;
@@ -61,7 +61,7 @@ promosRouter
 	})
 	.delete('/:id', authorizeUser, requiresPermission('write'), async ctx => {
 		try {
-			const promo = await updatePromo(ctx.params.id, {updatedBy: ctx.user.id, status: 'disabled'});
+			const promo = await updatePromo(ctx.params.id, {updatedBy: ctx.state.user.id, status: 'disabled'});
 
 			return ctx.body = promo;
 		} catch(e) {

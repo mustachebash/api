@@ -27,7 +27,7 @@ guestsRouter
 	})
 	.post('/', requiresPermission('write'), async ctx => {
 		try {
-			const guest = await createGuest({...ctx.request.body, createdBy: ctx.user.id, createdReason: 'comp'});
+			const guest = await createGuest({...ctx.request.body, createdBy: ctx.state.user.id, createdReason: 'comp'});
 
 			ctx.set('Location', `https://${ctx.host}${ctx.path}/${guest.id}`);
 			ctx.status = 201;
@@ -53,7 +53,7 @@ guestsRouter
 	})
 	.patch('/:id', async ctx => {
 		try {
-			const guest = await updateGuest(ctx.params.id, {updatedBy: ctx.user.id, ...ctx.request.body});
+			const guest = await updateGuest(ctx.params.id, {updatedBy: ctx.state.user.id, ...ctx.request.body});
 
 			return ctx.body = guest;
 		} catch(e) {
@@ -64,7 +64,7 @@ guestsRouter
 	})
 	.delete('/:id', async ctx => {
 		try {
-			const guest = await archiveGuest(ctx.params.id, ctx.user.id);
+			const guest = await archiveGuest(ctx.params.id, ctx.state.user.id);
 
 			return ctx.body = guest;
 		} catch(e) {

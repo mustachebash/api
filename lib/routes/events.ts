@@ -44,7 +44,7 @@ eventsRouter
 	})
 	.patch('/:id', requiresPermission('admin'), async ctx => {
 		try {
-			const event = await updateEvent(ctx.params.id, {...ctx.request.body, updatedBy: ctx.user.id});
+			const event = await updateEvent(ctx.params.id, {...ctx.request.body, updatedBy: ctx.state.user.id});
 
 			return ctx.body = event;
 		} catch(e) {

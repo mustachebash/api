@@ -34,7 +34,7 @@ ordersRouter
 			try {
 				orderToken = await generateOrderToken(order.id);
 			} catch(e) {
-				ctx.log.error(e, 'Error creating order token');
+				ctx.state.log.error(e, 'Error creating order token');
 			}
 
 			// Send a receipt email
@@ -69,7 +69,7 @@ ordersRouter
 	})
 	.delete('/:id', authorizeUser, async ctx => {
 		try {
-			const refundDetails = await refundOrder(ctx.params.id, ctx.user.id);
+			const refundDetails = await refundOrder(ctx.params.id, ctx.state.user.id);
 
 			return ctx.body = refundDetails;
 		} catch(e) {
@@ -134,7 +134,7 @@ ordersRouter
 		if(!ctx.request.body) throw ctx.throw(400);
 
 		try {
-			const { transferee, order } = await transferTickets(ctx.params.id, ctx.request.body, ctx.user.id),
+			const { transferee, order } = await transferTickets(ctx.params.id, ctx.request.body, ctx.state.user.id),
 				{ email, firstName, lastName } = transferee,
 				{ id, parentOrderId } = order;
 
@@ -142,7 +142,7 @@ ordersRouter
 			try {
 				orderToken = await generateOrderToken(id);
 			} catch(e) {
-				ctx.log.error(e, 'Error creating order token');
+				ctx.state.log.error(e, 'Error creating order token');
 			}
 
 			// Send a transfer email

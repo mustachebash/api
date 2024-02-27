@@ -92,7 +92,7 @@ apiRouter
 		// if(!ctx.request.body.ticketToken) throw ctx.throw(400);
 
 		// try {
-		// 	const response = await checkInWithTicket(ctx.request.body.ticketToken, ctx.user.username);
+		// 	const response = await checkInWithTicket(ctx.request.body.ticketToken, ctx.state.user.username);
 
 		// 	return ctx.body = response;
 		// } catch(e) {
@@ -191,7 +191,7 @@ apiRouter
 		const clientError = ctx.request.body,
 			err = new ClientError(clientError as Record<string, string>, {userAgent: ctx.get('user-agent')});
 
-		ctx.log.error(err);
+		ctx.state.log.error(err);
 
 		return ctx.status = 204;
 	});

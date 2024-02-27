@@ -18,7 +18,7 @@ customersRouter
 	})
 	.post('/', authorizeUser, requiresPermission('admin'), async ctx => {
 		try {
-			const customer = await createCustomer({...ctx.request.body, createdBy: ctx.user.id});
+			const customer = await createCustomer({...ctx.request.body, createdBy: ctx.state.user.id});
 
 			ctx.set('Location', `https://${ctx.host}${ctx.path}/${customer.id}`);
 			ctx.status= 201;
@@ -46,7 +46,7 @@ customersRouter
 	})
 	.delete('/:id', authorizeUser, requiresPermission('admin'), async ctx => {
 		try {
-			const customer = await updateCustomer(ctx.params.id, {updatedBy: ctx.user.id, status: 'disabled'});
+			const customer = await updateCustomer(ctx.params.id, {updatedBy: ctx.state.user.id, status: 'disabled'});
 
 			return ctx.body = customer;
 		} catch(e) {
