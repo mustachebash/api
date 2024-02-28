@@ -8,6 +8,7 @@
   "author": "Wild Feather LLC",
   "scripts": {
     "dev": "tsx watch --clear-screen=false lib/index.ts",
+    "build": "rm -rf dist && tsc",
     "test": "eslint . && tsc --noEmit",
     "start": "node .",
     "check:updates": "ncu",
