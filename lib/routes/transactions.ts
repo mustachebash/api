@@ -1,6 +1,6 @@
-const Router = require('@koa/router'),
-	{ authorizeUser } = require('../middleware/auth'),
-	{ getTransactions, getTransaction, getTransactionProcessorDetails } = require('../services/transactions');
+import Router from '@koa/router';
+import { authorizeUser } from '../middleware/auth.js';
+import { getTransactions, getTransaction, getTransactionProcessorDetails } from '../services/transactions.js';
 
 const transactionsRouter = new Router({
 	prefix: '/transactions'
@@ -13,7 +13,7 @@ transactionsRouter
 
 			return ctx.body = transactions;
 		} catch(e) {
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	});
 
@@ -22,11 +22,11 @@ transactionsRouter
 		try {
 			const transaction = await getTransaction(ctx.params.id);
 
-			if(!transaction) ctx.throw(404);
+			if(!transaction) throw ctx.throw(404);
 
 			return ctx.body = transaction;
 		} catch(e) {
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	});
 
@@ -37,10 +37,10 @@ transactionsRouter
 
 			return ctx.body = processorDetails;
 		} catch(e) {
-			if(e.code === 'NOT_FOUND') ctx.throw(404);
+			if(e.code === 'NOT_FOUND') throw ctx.throw(404);
 
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	});
 
-module.exports = transactionsRouter;
+export default transactionsRouter;

@@ -3,58 +3,59 @@
  * @type {Object}
  */
 
-const crypto = require('crypto'),
-	config = require('../config'),
-	log = require('../utils/log'),
-	mailgun = require('mailgun-js')({apiKey: config.mailgun.apiKey, domain: config.mailgun.domain}),
-	MailChimpClient = require('mailchimp-api-v3');
+import crypto from 'crypto';
+import * as config from '../config.js';
+import log from '../utils/log.js';
+import MailgunJs from 'mailgun-js';
+import MailChimpClient from 'mailchimp-api-v3';
+
+const mailgun = MailgunJs({apiKey: config.mailgun.apiKey, domain: config.mailgun.domain});
 
 const mailchimp = new MailChimpClient(config.mailchimp.apiKey),
 	md5 = string => crypto.createHash('md5').update(string).digest('hex');
 
 /* eslint-disable max-len */
-module.exports = {
-	/**
-	 * This will upsert a member into a list with first and last names, subscribe by default (but leave existing statuses in place)
-	 * then apply all tags listed
-	 * @param  {string}  listId    Mailchimp list id
-	 * @param  {string}  email     subscriber email
-	 * @param  {string}  firstName subscriber first name
-	 * @param  {string}  lastName  subscriber last name
-	 * @param  {Array}   [tags=[] string }]   tags to apply to member
-	 * @return {Promise}
-	 */
-	async upsertEmailSubscriber(listId, { email, firstName, lastName, tags = [] }) {
-		const memberHash = md5(email.toLowerCase());
+/**
+ * This will upsert a member into a list with first and last names, subscribe by default (but leave existing statuses in place)
+ * then apply all tags listed
+ * @param  {string}  listId    Mailchimp list id
+ * @param  {string}  email     subscriber email
+ * @param  {string}  firstName subscriber first name
+ * @param  {string}  lastName  subscriber last name
+ * @param  {Array}   [tags=[] string }]   tags to apply to member
+ * @return {Promise}
+ */
+export async function upsertEmailSubscriber(listId, { email, firstName, lastName, tags = [] }) {
+	const memberHash = md5(email.toLowerCase());
 
-		try {
-			await mailchimp.put(`/lists/${listId}/members/${memberHash}`, {
-				email_address: email,
-				status_if_new: 'subscribed',
-				merge_fields: {
-					FNAME: firstName,
-					LNAME: lastName
-				}
-			});
-
-			if(tags.length) {
-				await mailchimp.post(`/lists/${listId}/members/${memberHash}/tags`, {
-					tags: tags.map(tag => ({name: tag, status: 'active'}))
-				});
+	try {
+		await mailchimp.put(`/lists/${listId}/members/${memberHash}`, {
+			email_address: email,
+			status_if_new: 'subscribed',
+			merge_fields: {
+				FNAME: firstName,
+				LNAME: lastName
 			}
+		});
 
-			log.info({email, listId}, 'Email successfully added to list');
-		} catch(e) {
-			log.error({err: e, listId, email}, 'Failed to add email to MailChimp list');
+		if(tags.length) {
+			await mailchimp.post(`/lists/${listId}/members/${memberHash}/tags`, {
+				tags: tags.map(tag => ({name: tag, status: 'active'}))
+			});
 		}
-	},
 
-	sendReceipt(guestFirstName, guestLastName, guestEmail, confirmation, orderId, orderToken, amount) {
-		mailgun.messages().send({
-			from: 'Mustache Bash Tickets <contact@mustachebash.com>',
-			to: guestFirstName + ' ' + guestLastName + ' <' + guestEmail + '> ',
-			subject: 'Your Tickets & Confirmation For San Diego Mustache Bash 2024',
-			html: `
+		log.info({email, listId}, 'Email successfully added to list');
+	} catch(e) {
+		log.error({err: e, listId, email}, 'Failed to add email to MailChimp list');
+	}
+}
+
+export function sendReceipt(guestFirstName, guestLastName, guestEmail, confirmation, orderId, orderToken, amount) {
+	mailgun.messages().send({
+		from: 'Mustache Bash Tickets <contact@mustachebash.com>',
+		to: guestFirstName + ' ' + guestLastName + ' <' + guestEmail + '> ',
+		subject: 'Your Tickets & Confirmation For San Diego Mustache Bash 2024',
+		html: `
 <!doctype html>
 <html>
   <head>
@@ -199,18 +200,18 @@ table[class=body] .article {
     </table>
   </body>
 </html>
-			`
-		})
-			.then(mailgunResponse => log.info({mailgunResponse, guestEmail, confirmation}, 'Receipt email sent'))
-			.catch(err => log.error({err, guestEmail, confirmation}, 'Receipt email failed to send'));
-	},
+		`
+	})
+		.then(mailgunResponse => log.info({mailgunResponse, guestEmail, confirmation}, 'Receipt email sent'))
+		.catch(err => log.error({err, guestEmail, confirmation}, 'Receipt email failed to send'));
+}
 
-	sendTransfereeConfirmation(transfereeFirstName, transfereeLastName, transfereeEmail, parentOrderId, orderToken) {
-		mailgun.messages().send({
-			from: 'Mustache Bash Tickets <contact@mustachebash.com>',
-			to: transfereeFirstName + ' ' + transfereeLastName + ' <' + transfereeEmail + '> ',
-			subject: 'Your Tickets & Transfer Confirmation For San Diego Mustache Bash 2024',
-			html: `
+export function sendTransfereeConfirmation(transfereeFirstName, transfereeLastName, transfereeEmail, parentOrderId, orderToken) {
+	mailgun.messages().send({
+		from: 'Mustache Bash Tickets <contact@mustachebash.com>',
+		to: transfereeFirstName + ' ' + transfereeLastName + ' <' + transfereeEmail + '> ',
+		subject: 'Your Tickets & Transfer Confirmation For San Diego Mustache Bash 2024',
+		html: `
 <!doctype html>
 <html>
   <head>
@@ -353,10 +354,9 @@ table[class=body] .article {
     </table>
   </body>
 </html>
-			`
-		})
-			.then(mailgunResponse => log.info({mailgunResponse, transfereeEmail, parentOrderId}, 'Transferee email sent'))
-			.catch(err => log.error({err, transfereeEmail, parentOrderId}, 'Transferee email failed to send'));
-	}
-};
+		`
+	})
+		.then(mailgunResponse => log.info({mailgunResponse, transfereeEmail, parentOrderId}, 'Transferee email sent'))
+		.catch(err => log.error({err, transfereeEmail, parentOrderId}, 'Transferee email failed to send'));
+}
 /* eslint-enable */

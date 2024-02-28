@@ -1,6 +1,6 @@
-const Router = require('@koa/router'),
-	{ authorizeUser } = require('../middleware/auth'),
-	{ createProduct, getProducts, getProduct, updateProduct } = require('../services/products');
+import Router from '@koa/router';
+import { authorizeUser } from '../middleware/auth.js';
+import { createProduct, getProducts, getProduct, updateProduct } from '../services/products.js';
 
 const productsRouter = new Router({
 	prefix: '/products'
@@ -15,7 +15,7 @@ productsRouter
 
 			return ctx.body = products;
 		} catch(e) {
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	})
 	.post('/', async ctx => {
@@ -26,9 +26,9 @@ productsRouter
 			ctx.status = 201;
 			return ctx.body = product;
 		} catch(e) {
-			if(e.code === 'INVALID') ctx.throw(400, e);
+			if(e.code === 'INVALID') throw ctx.throw(400, e);
 
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	});
 
@@ -37,23 +37,23 @@ productsRouter
 		try {
 			const product = await getProduct(ctx.params.id);
 
-			if(!product) ctx.throw(404);
+			if(!product) throw ctx.throw(404);
 
 			return ctx.body = product;
 		} catch(e) {
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	})
 	.patch('/:id', async ctx => {
 		try {
-			const product = await updateProduct(ctx.params.id, {...ctx.request.body, updatedBy: ctx.user.id});
+			const product = await updateProduct(ctx.params.id, {...ctx.request.body, updatedBy: ctx.state.user.id});
 
 			return ctx.body = product;
 		} catch(e) {
-			if(e.code === 'INVALID') ctx.throw(400);
+			if(e.code === 'INVALID') throw ctx.throw(400);
 
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	});
 
-module.exports = productsRouter;
+export default productsRouter;

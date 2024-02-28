@@ -1,7 +1,7 @@
-const Router = require('@koa/router'),
-	{ authorizeUser, requiresPermission } = require('../middleware/auth'),
-	{ createPromo, getPromos, getPromo, updatePromo } = require('../services/promos'),
-	{ getProduct } = require('../services/products');
+import Router from '@koa/router';
+import { authorizeUser, requiresPermission } from '../middleware/auth.js';
+import { createPromo, getPromos, getPromo, updatePromo } from '../services/promos.js';
+import { getProduct } from '../services/products.js';
 
 const promosRouter = new Router({
 	prefix: '/promos'
@@ -14,20 +14,20 @@ promosRouter
 
 			return ctx.body = promos;
 		} catch(e) {
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	})
 	.post('/', authorizeUser, requiresPermission('write'), async ctx => {
 		try {
-			const promo = await createPromo({...ctx.request.body, createdBy: ctx.user.id});
+			const promo = await createPromo({...ctx.request.body, createdBy: ctx.state.user.id});
 
 			ctx.set('Location', `https://${ctx.host}${ctx.path}/${promo.id}`);
 			ctx.status= 201;
 			return ctx.body = promo;
 		} catch(e) {
-			if(e.code === 'INVALID') ctx.throw(400);
+			if(e.code === 'INVALID') throw ctx.throw(400);
 
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	});
 
@@ -37,15 +37,15 @@ promosRouter
 		try {
 			const promo = await getPromo(ctx.params.id);
 
-			if(!promo) ctx.throw(404);
+			if(!promo) throw ctx.throw(404);
 			// If the promo has been used, return 410 GONE
-			if(promo.status !== 'active') ctx.throw(410);
+			if(promo.status !== 'active') throw ctx.throw(410);
 
 			const product = await getProduct(promo.productId);
 			delete promo.productId;
 
 			// if the product is no longer available, return 410 GONE
-			if(product.status !== 'active') ctx.throw(410);
+			if(product.status !== 'active') throw ctx.throw(410);
 
 			promo.product = {
 				id: product.id,
@@ -56,19 +56,19 @@ promosRouter
 
 			return ctx.body = promo;
 		} catch(e) {
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	})
 	.delete('/:id', authorizeUser, requiresPermission('write'), async ctx => {
 		try {
-			const promo = await updatePromo(ctx.params.id, {updatedBy: ctx.user.id, status: 'disabled'});
+			const promo = await updatePromo(ctx.params.id, {updatedBy: ctx.state.user.id, status: 'disabled'});
 
 			return ctx.body = promo;
 		} catch(e) {
-			if(e.code === 'INVALID') ctx.throw(400);
+			if(e.code === 'INVALID') throw ctx.throw(400);
 
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	});
 
-module.exports = promosRouter;
+export default promosRouter;

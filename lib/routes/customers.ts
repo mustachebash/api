@@ -1,6 +1,6 @@
-const Router = require('@koa/router'),
-	{ authorizeUser, requiresPermission } = require('../middleware/auth'),
-	{ createCustomer, getCustomers, getCustomer, updateCustomer } = require('../services/customers');
+import Router from '@koa/router';
+import { authorizeUser, requiresPermission } from '../middleware/auth.js';
+import { createCustomer, getCustomers, getCustomer, updateCustomer } from '../services/customers.js';
 
 const customersRouter = new Router({
 	prefix: '/customers'
@@ -13,20 +13,20 @@ customersRouter
 
 			return ctx.body = customers;
 		} catch(e) {
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	})
 	.post('/', authorizeUser, requiresPermission('admin'), async ctx => {
 		try {
-			const customer = await createCustomer({...ctx.request.body, createdBy: ctx.user.id});
+			const customer = await createCustomer({...ctx.request.body, createdBy: ctx.state.user.id});
 
 			ctx.set('Location', `https://${ctx.host}${ctx.path}/${customer.id}`);
 			ctx.status= 201;
 			return ctx.body = customer;
 		} catch(e) {
-			if(e.code === 'INVALID') ctx.throw(400);
+			if(e.code === 'INVALID') throw ctx.throw(400);
 
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	});
 
@@ -39,21 +39,21 @@ customersRouter
 
 			return ctx.body = customer;
 		} catch(e) {
-			if(e.code === 'NOT_FOUND') ctx.throw(404);
+			if(e.code === 'NOT_FOUND') throw ctx.throw(404);
 
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	})
 	.delete('/:id', authorizeUser, requiresPermission('admin'), async ctx => {
 		try {
-			const customer = await updateCustomer(ctx.params.id, {updatedBy: ctx.user.id, status: 'disabled'});
+			const customer = await updateCustomer(ctx.params.id, {updatedBy: ctx.state.user.id, status: 'disabled'});
 
 			return ctx.body = customer;
 		} catch(e) {
-			if(e.code === 'INVALID') ctx.throw(400);
+			if(e.code === 'INVALID') throw ctx.throw(400);
 
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	});
 
-module.exports = customersRouter;
+export default customersRouter;

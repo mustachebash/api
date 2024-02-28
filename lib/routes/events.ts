@@ -1,6 +1,6 @@
-const Router = require('@koa/router'),
-	{ authorizeUser, requiresPermission } = require('../middleware/auth'),
-	{ getEvents, getEvent, createEvent, updateEvent, getEventSummary, getOpeningSales, getEventCheckins, getEventExtendedStats, getEventDailyTickets } = require('../services/events');
+import Router from '@koa/router';
+import { authorizeUser, requiresPermission } from '../middleware/auth.js';
+import { getEvents, getEvent, createEvent, updateEvent, getEventSummary, getOpeningSales, getEventExtendedStats, getEventDailyTickets } from '../services/events.js';
 
 const eventsRouter = new Router({
 	prefix: '/events'
@@ -15,7 +15,7 @@ eventsRouter
 
 			return ctx.body = events;
 		} catch(e) {
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	})
 	.post('/', requiresPermission('admin'), async ctx => {
@@ -24,9 +24,9 @@ eventsRouter
 
 			return ctx.body = event;
 		} catch(e) {
-			if(e.code === 'INVALID') ctx.throw(400);
+			if(e.code === 'INVALID') throw ctx.throw(400);
 
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	});
 
@@ -37,20 +37,20 @@ eventsRouter
 
 			return ctx.body = event;
 		} catch(e) {
-			if(e.code === 'NOT_FOUND') ctx.throw(404);
+			if(e.code === 'NOT_FOUND') throw ctx.throw(404);
 
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	})
 	.patch('/:id', requiresPermission('admin'), async ctx => {
 		try {
-			const event = await updateEvent(ctx.params.id, {...ctx.request.body, updatedBy: ctx.user.id});
+			const event = await updateEvent(ctx.params.id, {...ctx.request.body, updatedBy: ctx.state.user.id});
 
 			return ctx.body = event;
 		} catch(e) {
-			if(e.code === 'INVALID') ctx.throw(400);
+			if(e.code === 'INVALID') throw ctx.throw(400);
 
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	});
 
@@ -59,11 +59,11 @@ eventsRouter
 		try {
 			const eventSummary = await getEventSummary(ctx.params.id);
 
-			if(!eventSummary) ctx.throw(404);
+			if(!eventSummary) throw ctx.throw(404);
 
 			return ctx.body = eventSummary;
 		} catch(e) {
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	});
 
@@ -72,11 +72,11 @@ eventsRouter
 		try {
 			const eventExtendedStats = await getEventExtendedStats(ctx.params.id);
 
-			if(!eventExtendedStats) ctx.throw(404);
+			if(!eventExtendedStats) throw ctx.throw(404);
 
 			return ctx.body = eventExtendedStats;
 		} catch(e) {
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	});
 
@@ -87,7 +87,7 @@ eventsRouter
 			let chartData;
 			switch(chartType) {
 				case 'checkIns':
-					chartData = await getEventCheckins(ctx.params.id);
+					// chartData = await getEventCheckins(ctx.params.id);
 					break;
 
 				case 'openingSales':
@@ -100,25 +100,12 @@ eventsRouter
 					break;
 			}
 
-			if(!chartData) ctx.throw(404);
+			if(!chartData) throw ctx.throw(404);
 
 			return ctx.body = chartData;
 		} catch(e) {
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	});
 
-eventsRouter
-	.get('/:id/checkins', async ctx => {
-		try {
-			const chartData = await getEventCheckins(ctx.params.id);
-
-			if(!chartData) ctx.throw(404);
-
-			return ctx.body = chartData;
-		} catch(e) {
-			ctx.throw(e);
-		}
-	});
-
-module.exports = eventsRouter;
+export default eventsRouter;

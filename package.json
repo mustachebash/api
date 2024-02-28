@@ -2,33 +2,47 @@
   "name": "mustachebash-api",
   "version": "1.14.1",
   "description": "Mustache Bash API",
-  "main": "lib/index.js",
+  "main": "dist/index.js",
+  "type": "module",
   "private": true,
   "author": "Wild Feather LLC",
   "scripts": {
-    "debug": "nodemon --inspect=0.0.0.0:9229 --watch lib .",
-    "test": "eslint .",
-    "start": "node ."
+    "dev": "tsx watch --clear-screen=false lib/index.ts",
+    "build": "rm -rf dist && tsc",
+    "test": "eslint . && tsc --noEmit",
+    "start": "node .",
+    "check:updates": "ncu",
+    "update:packages": "ncu -u"
   },
   "license": "ISC",
   "dependencies": {
     "@koa/cors": "^5.0.0",
-    "@koa/router": "^10.1.1",
-    "bcryptjs": "^2.4.3",
-    "braintree": "^3.8.0",
-    "google-auth-library": "^9.4.1",
-    "jsonwebtoken": "^8.5.1",
-    "koa": "^2.13.4",
-    "koa-bodyparser": "^4.3.0",
+    "@koa/router": "^12.0.1",
+    "braintree": "^3.21.0",
+    "google-auth-library": "^9.6.3",
+    "jsonwebtoken": "^9.0.2",
+    "koa": "^2.15.0",
+    "koa-bodyparser": "^4.4.1",
     "mailchimp-api-v3": "^1.15.0",
     "mailgun-js": "^0.22.0",
-    "pino": "^6.13.3",
+    "pino": "^8.18.0",
     "postgres": "^3.4.3",
-    "qrcode": "^1.5.0",
-    "uuid": "^8.3.2"
+    "qrcode": "^1.5.3",
+    "uuid": "^9.0.1"
   },
   "devDependencies": {
-    "eslint": "^8.4.1",
-    "nodemon": "^2.0.15"
+    "@types/jsonwebtoken": "^9.0.5",
+    "@types/koa": "^2.14.0",
+    "@types/koa__cors": "^5.0.0",
+    "@types/koa__router": "^12.0.4",
+    "@types/koa-bodyparser": "^4.3.12",
+    "@types/node": "^20.11.17",
+    "@types/uuid": "^9.0.8",
+    "chalk": "^5.3.0",
+    "eslint": "^8.56.0",
+    "npm-check-updates": "^16.14.15",
+    "pino-pretty": "^10.3.1",
+    "tsx": "^4.7.1",
+    "typescript": "^5.3.3"
   }
 }

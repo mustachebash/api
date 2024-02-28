@@ -1,6 +1,6 @@
-const Router = require('@koa/router'),
-	{ authorizeUser } = require('../middleware/auth'),
-	{ getUsers, getUser } = require('../services/auth');
+import Router from '@koa/router';
+import { authorizeUser } from '../middleware/auth.js';
+import { getUsers, getUser } from '../services/auth.js';
 
 const usersRouter = new Router({
 	prefix: '/users'
@@ -15,7 +15,7 @@ usersRouter
 
 			return ctx.body = users;
 		} catch(e) {
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	});
 
@@ -24,13 +24,13 @@ usersRouter
 		try {
 			const user = await getUser(ctx.params.username);
 
-			if(!user) ctx.throw(404);
+			if(!user) throw ctx.throw(404);
 
 			delete user.password;
 			return ctx.body = user;
 		} catch(e) {
-			ctx.throw(e);
+			throw ctx.throw(e);
 		}
 	});
 
-module.exports = usersRouter;
+export default usersRouter;
