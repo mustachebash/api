@@ -57,7 +57,7 @@ guestsRouter
 
 			return ctx.body = guest;
 		} catch(e) {
-			if(e.code === 'INVALID') throw ctx.throw(400);
+			if(e.code === 'INVALID') throw ctx.throw(400, e, {expose: false});
 
 			throw ctx.throw(e);
 		}

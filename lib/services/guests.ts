@@ -36,6 +36,7 @@ const guestColumns = [
 	'admission_tier',
 	'created',
 	'updated',
+	'updated_by',
 	'created_by',
 	'created_reason',
 	'status',
@@ -130,7 +131,7 @@ export async function getCurrentGuestTicketQrCode(guestId) {
 export async function updateGuest(id, updates) {
 	for(const u in updates) {
 		// Update whitelist
-		if(!['status', 'firstName', 'lastName', 'updatedBy', 'meta'].includes(u)) throw new GuestsServiceError('Invalid guest data', 'INVALID');
+		if(!['status', 'firstName', 'lastName', 'updatedBy', 'meta', 'admissionTier'].includes(u)) throw new GuestsServiceError('Invalid guest data', 'INVALID');
 	}
 
 	if(Object.keys(updates).length === 1 && updates.updatedBy) throw new GuestsServiceError('Invalid guest data', 'INVALID');
@@ -147,9 +148,39 @@ export async function updateGuest(id, updates) {
 
 	if(Object.keys(updates).length === 1 && updates.updatedBy) throw new GuestsServiceError('Invalid product data', 'INVALID');
 
-	let guest;
+	// Prevent accidental downgrading of a guest below their purchased tier
+	let minimumAdmissionTier;
+	if (updates.admissionTier) {
+		try {
+			[minimumAdmissionTier] = await sql`
+				SELECT p.admission_tier
+				FROM guests AS g
+				LEFT JOIN order_items AS oi
+					ON g.order_id = oi.order_id
+				LEFT JOIN products AS p
+					ON oi.product_id = p.id
+					AND g.event_id = p.event_id
+				WHERE g.id = ${id}
+				AND p.id IS NOT NULL
+			`;
+		} catch(e) {
+			throw new GuestsServiceError('Could not query guest', 'UNKNOWN', e);
+		}
+
+		if(!minimumAdmissionTier) throw new GuestsServiceError('Guest not found', 'NOT_FOUND');
+
+		// TODO: make this a tiered access list similar to user roles so we can support multiple levels in the future
+		if(
+			minimumAdmissionTier.admissionTier === 'vip' &&
+			updates.admissionTier === 'general'
+		) {
+			throw new GuestsServiceError('Cannot downgrade VIP guest to general admission', 'INVALID');
+		}
+	}
+
+	let updatedGuest;
 	try {
-		[guest] = await sql`
+		[updatedGuest] = await sql`
 			UPDATE guests
 			SET ${sql(updates)}, updated = now()
 			WHERE id = ${id}
@@ -159,9 +190,9 @@ export async function updateGuest(id, updates) {
 		throw new GuestsServiceError('Could not update guest', 'UNKNOWN', e);
 	}
 
-	if(!guest) throw new GuestsServiceError('guest not found', 'NOT_FOUND');
+	if(!updatedGuest) throw new GuestsServiceError('guest not found', 'NOT_FOUND');
 
-	return guest;
+	return updatedGuest;
 }
 
 export async function archiveGuest(id, updatedBy) {
