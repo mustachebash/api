@@ -43,7 +43,7 @@ const convertPriceToNumber = (p: Record<string, unknown>) => ({...p, ...(typeof 
 
 type ProductType = 'ticket' | 'upgrade' | 'accomodation';
 type AdmissionTier = 'general' | 'vip' | 'sponsor' | 'stachepass';
-type Product = {
+export type Product = {
 	id: string;
 	price: number;
 	name: string;
