@@ -7,7 +7,8 @@ import jwt from 'jsonwebtoken';
 import { v4 as uuidV4 } from 'uuid';
 import log from '../utils/log.js';
 import { sql } from '../utils/db.js';
-import { createGuest } from '../services/guests.js';
+import { createGuest, updateGuest } from '../services/guests.js';
+import type { Product } from '../services/products.js';
 import { braintree as btConfig, jwt as jwtConfig } from '../config.js';
 
 const { orderSecret } = jwtConfig;
@@ -20,7 +21,10 @@ const gateway = new braintree.BraintreeGateway({
 });
 
 class OrdersServiceError extends Error {
-	constructor(message = 'An unknown error occured', code = 'UNKNOWN', context) {
+	code: string;
+	context: unknown;
+
+	constructor(message = 'An unknown error occured', code = 'UNKNOWN', context?: unknown) {
 		super(message);
 
 		this.name = this.constructor.name;
@@ -130,11 +134,29 @@ export async function getOrders({ eventId, productId, status, limit, orderBy = '
 	}
 }
 
-export async function createOrder({ paymentMethodNonce, cart = [], customer = {}, promoId }) {
+type OrderInput = {
+	paymentMethodNonce: string;
+
+	cart: {
+		productId: string;
+		quantity: number;
+	}[];
+
+	customer: {
+		firstName: string;
+		lastName: string;
+		email: string;
+	};
+
+	promoId?: string;
+
+	targetGuestId?: string;
+};
+export async function createOrder({ paymentMethodNonce, cart = [], customer = {}, promoId, targetGuestId }: OrderInput) {
 	// First do some validation
 	if (!cart.length || !paymentMethodNonce || !customer.firstName || !customer.lastName || !customer.email) throw new OrdersServiceError('Invalid payment parameters', 'INVALID');
 
-	const products = (await sql`
+	const products = (await sql<(Product & {totalSold: string})[]>`
 		SELECT p.*, COALESCE(SUM(oi.quantity), 0) as total_sold
 		FROM products as p
 		LEFT JOIN order_items as oi
@@ -164,6 +186,19 @@ export async function createOrder({ paymentMethodNonce, cart = [], customer = {}
 		if(!promo || promo.status !== 'active') throw new OrdersServiceError('Invalid promo code', 'INVALID');
 	}
 
+	let targetGuest;
+	if(targetGuestId) {
+		if(products.length > 1 || products[0].type !== 'upgrade') throw new OrdersServiceError('Missing/incorrect Upgrade Product', 'INVALID');
+
+		[targetGuest] = await sql`
+			SELECT *
+			FROM guests
+			WHERE id = ${targetGuestId}
+		`;
+
+		if(!targetGuest || targetGuest.status !== 'active') throw new OrdersServiceError('Invalid target guest', 'INVALID');
+	}
+
 	// Ensure we have the all the products attempting to be purchased
 	// For now, use a slug of `GONE` since this should only occur when a product has become inactive since page load
 	// if(!products.length || products.length !== cart.length) throw new OrdersServiceError('Empty/Invalid items in cart', 'INVALID');
@@ -181,6 +216,15 @@ export async function createOrder({ paymentMethodNonce, cart = [], customer = {}
 			promo.type === 'single-use' &&
 			promo.productQuantity < i.quantity
 		) throw new OrdersServiceError('Promo quantity exceeded', 'INVALID');
+
+		// Special upgrade quantity check
+		if (
+			targetGuest &&
+			(
+				targetGuest.admissionTier === product.admissionTier ||
+				i.quantity > 1
+			)
+		) throw new OrdersServiceError('Upgrade quantity exceeded', 'INVALID');
 
 		if(remaining !== null) {
 			// So long as the product was active at start, don't worry if this individual order goes over the max
@@ -376,6 +420,18 @@ export async function createOrder({ paymentMethodNonce, cart = [], customer = {}
 							createdReason: 'purchase',
 							eventId: i.product.eventId,
 							orderId,
+							admissionTier: i.product.admissionTier
+						});
+					} catch(e) {
+						log.error(e, 'Error creating guest');
+					}
+				})();
+			}
+		} else if(i.product.type === 'upgrade') {
+			for (let j = 0; j < i.quantity; j++) {
+				(async () => {
+					try {
+						await updateGuest(targetGuest.id, {
 							admissionTier: i.product.admissionTier
 						});
 					} catch(e) {

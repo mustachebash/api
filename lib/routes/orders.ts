@@ -2,7 +2,7 @@ import Router from '@koa/router';
 import { authorizeUser, requiresPermission } from '../middleware/auth.js';
 import { getOrderTickets, transferTickets } from '../services/tickets.js';
 import { createOrder, getOrders, getOrder, getOrderTransfers, refundOrder, generateOrderToken } from '../services/orders.js';
-import { sendReceipt, upsertEmailSubscriber, sendTransfereeConfirmation } from '../services/email.js';
+import { sendReceipt, upsertEmailSubscriber, sendTransfereeConfirmation, sendUpgradeReceipt } from '../services/email.js';
 import { getTransactions } from '../services/transactions.js';
 
 // TODO: make this configurable at some point
@@ -31,18 +31,23 @@ ordersRouter
 				{ email, firstName, lastName } = customer;
 
 			let orderToken;
-			try {
-				orderToken = await generateOrderToken(order.id);
-			} catch(e) {
-				ctx.state.log.error(e, 'Error creating order token');
-			}
+			// Quick n dirty logic to check if an upgrade was purchased instead of a ticket
+			if(ctx.request.body.targetGuestId) {
+				sendUpgradeReceipt(firstName, lastName, email, transaction.processorTransactionId, order.id, order.amount);
+			} else {
+				try {
+					orderToken = await generateOrderToken(order.id);
+				} catch(e) {
+					ctx.state.log.error(e, 'Error creating order token');
+				}
 
-			// Send a receipt email
-			sendReceipt(firstName, lastName, email, transaction.processorTransactionId, order.id, orderToken, order.amount);
-			// Add them to the mailing list and tag as an attendee
-			const emailTags = [EMAIL_TAG];
-			if(ctx.request.body.customer.marketingOptIn) emailTags.push('Partner Marketing');
-			upsertEmailSubscriber(EMAIL_LIST, {email, firstName, lastName, tags: emailTags});
+				// Send a receipt email
+				sendReceipt(firstName, lastName, email, transaction.processorTransactionId, order.id, orderToken, order.amount);
+				// Add them to the mailing list and tag as an attendee
+				const emailTags = [EMAIL_TAG];
+				if(ctx.request.body.customer.marketingOptIn) emailTags.push('Partner Marketing');
+				upsertEmailSubscriber(EMAIL_LIST, {email, firstName, lastName, tags: emailTags});
+			}
 
 			ctx.set('Location', `https://${ctx.host}${ctx.path}/${order.id}`);
 			ctx.status = 201;
