@@ -41,7 +41,7 @@ const productColumns = [
 
 const convertPriceToNumber = (p: Record<string, unknown>) => ({...p, ...(typeof p.price === 'string' ? {price: Number(p.price)} : {})});
 
-type ProductType = 'ticket' | 'upgrade' | 'accomodation';
+type ProductType = 'ticket' | 'upgrade' | 'bundle-ticket' | 'accomodation';
 type AdmissionTier = 'general' | 'vip' | 'sponsor' | 'stachepass';
 export type Product = {
 	id: string;
@@ -61,6 +61,7 @@ export async function createProduct({ price, name, description, type, eventId, a
 	if(typeof price !== 'number') throw new ProductsServiceError('Price must be a number', 'INVALID');
 	if(type === 'ticket' && (!eventId || !admissionTier)) throw new ProductsServiceError('No event set for ticket', 'INVALID');
 	if(type === 'upgrade' && (!targetProductId || !admissionTier)) throw new ProductsServiceError('No product target set for ticket upgrade', 'INVALID');
+	if(type === 'bundle-ticket' && (!eventId || !targetProductId || !admissionTier)) throw new ProductsServiceError('No product target set for bundle ticket', 'INVALID');
 
 	const product: Product = {
 		id: uuidV4(),
@@ -75,6 +76,13 @@ export async function createProduct({ price, name, description, type, eventId, a
 
 	if(type === 'ticket') {
 		product.eventId = eventId;
+		product.admissionTier = admissionTier;
+		product.promo = Boolean(promo);
+	}
+
+	if(type === 'bundle-ticket') {
+		product.eventId = eventId;
+		product.targetProductId = targetProductId;
 		product.admissionTier = admissionTier;
 		product.promo = Boolean(promo);
 	}
