@@ -71,17 +71,4 @@ guestsRouter
 		}
 	});
 
-guestsRouter
-	.get('/:id/ticket', async ctx => {
-		try {
-			const qrcode = '';
-
-			if(!qrcode) throw ctx.throw(404);
-
-			return ctx.body = `<img src="${qrcode}" />`;
-		} catch(e) {
-			throw ctx.throw(e);
-		}
-	});
-
 export default guestsRouter;
