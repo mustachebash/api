@@ -3,15 +3,16 @@
  * Handles all guest/ticket actions
  * @type {Object}
  */
-import { toDataURL as generateQRDataURI } from 'qrcode';
-import jwt from 'jsonwebtoken';
 import { v4 as uuidV4 } from 'uuid';
 import { createGuest } from '../services/guests.js';
 import log from '../utils/log.js';
 import { sql } from '../utils/db.js';
 
 class TicketsServiceError extends Error {
-	constructor(message = 'An unknown error occured', code = 'UNKNOWN', context) {
+	code: string;
+	context?: unknown;
+
+	constructor(message = 'An unknown error occured', code = 'UNKNOWN', context?: unknown) {
 		super(message);
 
 		this.name = this.constructor.name;
@@ -22,15 +23,15 @@ class TicketsServiceError extends Error {
 	}
 }
 
-// eslint-disable-next-line no-unused-vars
-const generateTicketToken = ({ id, created, ticketSeed }) => jwt.sign({
-	aud: ticketSeed,
-	iat: Math.round(created / 1000),
-	sub: id
-},
-ticketSeed);
+// For now, ticket "seed" is fine to be used as plaintext since we can use it as
+// a revokable identifier, but are not rolling "live" tickets this year
+// ie, we aren't seeding a TOTP with it, and therefore it does not need to be a secret value.
+// This keeps the QR payload very short, and much quicker for scanning (both ease of reading and input time)
+function generateQRPayload(ticketSeed: string) {
+	return ticketSeed;
+}
 
-export async function getOrderTickets(orderId) {
+export async function getOrderTickets(orderId: string) {
 	let guests;
 	try {
 		guests = await sql`
@@ -54,9 +55,7 @@ export async function getOrderTickets(orderId) {
 	// Inject the QR Codes
 	const tickets = [];
 	for (const guest of guests) {
-		// const qrCode = await generateQRDataURI(generateTicketToken(guest).split('.').pop());
-		// eslint-disable-next-line no-unused-vars
-		const qrCode = await generateQRDataURI(`${guest.id}:${Date.now()}`);
+		const qrPayload = generateQRPayload(guest.ticketSeed);
 
 		tickets.push({
 			id: guest.id,
@@ -64,15 +63,15 @@ export async function getOrderTickets(orderId) {
 			eventId: guest.eventId,
 			eventName: guest.eventName,
 			eventDate: guest.eventDate,
-			status: guest.status
-			// qrCode
+			status: guest.status,
+			qrPayload
 		});
 	}
 
 	return tickets;
 }
 
-export async function getCustomerActiveTicketsByOrderId(orderId) {
+export async function getCustomerActiveTicketsByOrderId(orderId: string) {
 	let rows;
 	try {
 		rows = await sql`
@@ -80,6 +79,8 @@ export async function getCustomerActiveTicketsByOrderId(orderId) {
 				o.created AT TIME ZONE 'UTC' AT TIME ZONE 'America/Los_Angeles' as order_created,
 				o.customer_id,
 				g.id as guest_id,
+				g.status as guest_status,
+				g.check_in_time as guest_check_in_time,
 				g.admission_tier as guest_admission_tier,
 				g.ticket_seed as guest_ticket_seed,
 				g.order_id as guest_order_id,
@@ -103,9 +104,7 @@ export async function getCustomerActiveTicketsByOrderId(orderId) {
 		// Inject the QR Codes
 		const tickets = [];
 		for (const row of rows) {
-			// const qrCode = await generateQRDataURI(generateTicketToken(guest).split('.').pop());
-			// eslint-disable-next-line no-unused-vars
-			const qrCode = await generateQRDataURI(`${row.guestId}:${Date.now()}`);
+			const qrPayload = generateQRPayload(row.guestTicketSeed);
 
 			tickets.push({
 				id: row.guestId,
@@ -113,10 +112,12 @@ export async function getCustomerActiveTicketsByOrderId(orderId) {
 				orderId: row.guestOrderId,
 				orderCreated: row.orderCreated,
 				admissionTier: row.guestAdmissionTier,
+				status: row.guestStatus,
+				checkInTime: row.guestCheckInTime,
 				eventId: row.eventId,
 				eventName: row.eventName,
-				eventDate: row.eventDate
-				// qrCode
+				eventDate: row.eventDate,
+				// qrPayload
 			});
 		}
 
@@ -144,7 +145,20 @@ export async function getCustomerActiveTicketsByOrderId(orderId) {
  *   are merely records of "guest" transfers
  * - The transferee will be upserted into customers, which means the original customer will need to input first/last/email
  */
-export async function transferTickets(orderId, { transferee, guestIds }) {
+export async function transferTickets(
+	orderId: string,
+	{
+		transferee,
+		guestIds
+	}: {
+		transferee: {
+			email: string;
+			firstName: string;
+			lastName: string;
+		};
+		guestIds: string[];
+	}
+) {
 	if(!transferee) throw new TicketsServiceError('No transferee specified', 'INVALID');
 	if(!guestIds?.length) throw new TicketsServiceError('No tickets specified', 'INVALID');
 
@@ -270,41 +284,58 @@ export async function transferTickets(orderId, { transferee, guestIds }) {
 	};
 }
 
-export function checkInWithTicket() {
-	throw new TicketsServiceError('Not yet implemented', 'NOT_IMPLEMENTED');
-	// let ticketId, ticketGuestId;
-	// try {
-	// 	({ sub: ticketId, aud: ticketGuestId } = jwt.verify(ticketToken, config.jwt.ticketSecret, {issuer: 'mustachebash'}));
-	// } catch(e) {
-	// 	throw new TicketsServiceError('Invalid ticket token', 'INVALID_TICKET_TOKEN');
-	// }
+export async function checkInWithTicket(ticketToken: string, scannedBy: string) {
+	let guest;
+	// For now, this is happening directly with ticket seeds
+	try {
+		[guest] = await sql`
+			SELECT
+				g.id,
+				g.first_name,
+				g.last_name,
+				g.status,
+				g.order_id,
+				g.admission_tier,
+				g.check_in_time,
+				e.id AS event_id,
+				e.name AS event_name,
+				e.date AS event_date,
+				e.status AS event_status
+			FROM guests AS g
+			LEFT JOIN events AS e
+				ON g.event_id = e.id
+			WHERE g.ticket_seed = ${ticketToken}
+		`;
+	} catch(e) {
+		throw new TicketsServiceError('Could not query guests for order', 'UNKNOWN', e);
+	}
 
-	// const [ { ticket, guest, event } = {} ] = await run(r.table('tickets')
-	// 	.getAll([ticketGuestId, ticketId ], {index: 'guestAndTicketId'})
-	// 	.eqJoin('eventId', r.table('events'))
-	// 	.map({
-	// 		ticket: r.row('left'),
-	// 		event: r.row('right'),
-	// 		guest: r.table('guests').get(r.row('left')('guestId'))
-	// 	}))
-	// 	.then(cursor => cursor.toArray());
+	if(!guest) throw new TicketsServiceError('Ticket not found for guest', 'TICKET_NOT_FOUND');
 
-	// if(!ticket) throw new TicketsServiceError('Ticket not found for guest', 'TICKET_NOT_FOUND');
+	// Guests can't check in more than once
+	if(guest.status === 'checked_in') throw new TicketsServiceError('Guest already checked in', 'GUEST_ALREADY_CHECKED_IN', guest);
+	// Both entities must be active to check in
+	if(guest.status !== 'active') throw new TicketsServiceError('Guest no longer active', 'GUEST_NOT_ACTIVE', guest);
+	if(guest.eventStatus !== 'active') throw new TicketsServiceError('Event no longer active', 'EVENT_NOT_ACTIVE', guest);
 
-	// // All three entities must be active to check in
-	// if(ticket.status !== 'active' && ticket.status !== 'consumed') throw new TicketsServiceError('Ticket no longer active', 'TICKET_NOT_ACTIVE', {ticket, guest, event});
-	// if(guest.status !== 'active') throw new TicketsServiceError('Guest no longer active', 'GUEST_NOT_ACTIVE', {ticket, guest, event});
-	// if(event.status !== 'active') throw new TicketsServiceError('Event no longer active', 'EVENT_NOT_ACTIVE', {ticket, guest, event});
 
-	// // Guests can't check in more than once
-	// if(guest.checkedIn) throw new TicketsServiceError('Guest already checked in', 'GUEST_ALREADY_CHECKED_IN', {ticket, guest, event});
+	// Guests can't check in earlier than 1 hour before the event starts
+	if((new Date()).getTime() < (new Date(guest.eventDate)).getTime() - (1000 * 60 * 60 * 24 * 10)) throw new TicketsServiceError('Event has not started yet', 'EVENT_NOT_STARTED', guest);
 
-	// // Guests can't check in before the event starts
-	// if(event.enforceCheckInTime && new Date() < new Date(event.date)) throw new TicketsServiceError('Event has not started yet', 'EVENT_NOT_STARTED', {ticket, guest, event});
+	// Ticket and check in is valid - mark guest as checked in
+	try {
+		await sql`
+			UPDATE guests
+			SET
+				status = 'checked_in',
+				check_in_time = now(),
+				updated_by = ${scannedBy},
+				updated = now()
+			WHERE id = ${guest.id}
+		`;
+	} catch(e) {
+		throw new TicketsServiceError('Could not update guest', 'UNKNOWN', e);
+	}
 
-	// // Ticket and check in is valid - mark guest as checked in and ticket as used (sequentially)
-	// await run(r.table('guests').get(guest.id).update({checkedIn: r.now(), updated: r.now(), updatedBy: username}));
-	// await run(r.table('tickets').get(ticket.id).update({status: 'consumed'}));
-
-	// return {event, guest, ticket};
+	return guest;
 }

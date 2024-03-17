@@ -4,7 +4,6 @@ import {
 	createGuest,
 	getGuests,
 	getGuest,
-	getCurrentGuestTicketQrCode,
 	updateGuest,
 	archiveGuest
 } from '../services/guests.js';
@@ -75,7 +74,7 @@ guestsRouter
 guestsRouter
 	.get('/:id/ticket', async ctx => {
 		try {
-			const qrcode = await getCurrentGuestTicketQrCode(ctx.params.id);
+			const qrcode = '';
 
 			if(!qrcode) throw ctx.throw(404);
 

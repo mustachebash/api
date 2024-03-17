@@ -27,7 +27,6 @@
     "mailgun-js": "^0.22.0",
     "pino": "^8.18.0",
     "postgres": "^3.4.3",
-    "qrcode": "^1.5.3",
     "uuid": "^9.0.1"
   },
   "devDependencies": {
