@@ -4,7 +4,6 @@ import {
 	createGuest,
 	getGuests,
 	getGuest,
-	getCurrentGuestTicketQrCode,
 	updateGuest,
 	archiveGuest
 } from '../services/guests.js';
@@ -67,19 +66,6 @@ guestsRouter
 			const guest = await archiveGuest(ctx.params.id, ctx.state.user.id);
 
 			return ctx.body = guest;
-		} catch(e) {
-			throw ctx.throw(e);
-		}
-	});
-
-guestsRouter
-	.get('/:id/ticket', async ctx => {
-		try {
-			const qrcode = await getCurrentGuestTicketQrCode(ctx.params.id);
-
-			if(!qrcode) throw ctx.throw(404);
-
-			return ctx.body = `<img src="${qrcode}" />`;
 		} catch(e) {
 			throw ctx.throw(e);
 		}

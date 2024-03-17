@@ -10,7 +10,10 @@ import { v4 as uuidV4 } from 'uuid';
 import { sql } from '../utils/db.js';
 
 class GuestsServiceError extends Error {
-	constructor(message = 'An unknown error occured', code = 'UNKNOWN', context) {
+	code: string;
+	context?: unknown;
+
+	constructor(message = 'An unknown error occured', code = 'UNKNOWN', context?: unknown) {
 		super(message);
 
 		this.name = this.constructor.name;
@@ -20,14 +23,6 @@ class GuestsServiceError extends Error {
 		Error.captureStackTrace(this, this.constructor);
 	}
 }
-
-const generateTicketToken = ({ id, created, ticketSeed }) => jwt.sign({
-	iss: 'mustachebash',
-	aud: 'ticket',
-	iat: Math.round(created / 1000),
-	sub: id
-},
-ticketSeed);
 
 const guestColumns = [
 	'id',
@@ -110,22 +105,6 @@ export async function getGuest(id) {
 	if(!guest) throw new GuestsServiceError('Guest not found', 'NOT_FOUND');
 
 	return guest;
-}
-
-export async function getCurrentGuestTicketQrCode(guestId) {
-	let ticket;
-	try {
-		[ ticket ] = await sql`
-			SELECT *
-			FROM tickets
-			WHERE guest_id = ${guestId}
-				AND status = 'active'
-		`;
-	} catch(e) {
-		throw new GuestsServiceError('Could not query guest ticket', 'UNKNOWN', e);
-	}
-
-	return generateQRDataURI(generateTicketToken(ticket));
 }
 
 export async function updateGuest(id, updates) {

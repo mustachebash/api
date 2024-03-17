@@ -89,35 +89,35 @@ apiRouter
 
 apiRouter
 	.post('/check-ins', authorizeUser, requiresPermission('doorman'), async ctx => {
-		// if(!ctx.request.body.ticketToken) throw ctx.throw(400);
+		if(!ctx.request.body.ticketToken) throw ctx.throw(400);
 
-		// try {
-		// 	const response = await checkInWithTicket(ctx.request.body.ticketToken, ctx.state.user.id);
+		try {
+			const response = await checkInWithTicket(ctx.request.body.ticketToken, ctx.state.user.id);
 
-		// 	return ctx.body = response;
-		// } catch(e) {
-		// 	if(isRecordLike(e)) {
-		// 		if(e.code === 'TICKET_NOT_FOUND') throw ctx.throw(404);
+			return ctx.body = response;
+		} catch(e) {
+			if(isRecordLike(e)) {
+				if(e.code === 'TICKET_NOT_FOUND') throw ctx.throw(404);
 
-		// 		// These codes will trigger a JSON response but 4xx status
-		// 		const codeStatuses: Record<string, number> = {
-		// 			'GUEST_ALREADY_CHECKED_IN': 409,
-		// 			'EVENT_NOT_ACTIVE': 410,
-		// 			'EVENT_NOT_STARTED': 412,
-		// 			'TICKET_NOT_ACTIVE': 423,
-		// 			'GUEST_NOT_ACTIVE': 423
-		// 		};
-		// 		// For response bodies on errors, we need to manually set the response
-		// 		// This will not trigger an error event, or stop upstream propagation
-		// 		// if(Object.keys(codeStatuses).includes(e.code)) {
-		// 		if(typeof e.code === 'string' && e.code in codeStatuses) {
-		// 			ctx.status = codeStatuses[e.code];
-		// 			return ctx.body = e.context;
-		// 		}
-		// 	}
+				// These codes will trigger a JSON response but 4xx status
+				const codeStatuses: Record<string, number> = {
+					'GUEST_ALREADY_CHECKED_IN': 409,
+					'EVENT_NOT_ACTIVE': 410,
+					'EVENT_NOT_STARTED': 412,
+					'TICKET_NOT_ACTIVE': 423,
+					'GUEST_NOT_ACTIVE': 423
+				};
+				// For response bodies on errors, we need to manually set the response
+				// This will not trigger an error event, or stop upstream propagation
+				// if(Object.keys(codeStatuses).includes(e.code)) {
+				if(typeof e.code === 'string' && e.code in codeStatuses) {
+					ctx.status = codeStatuses[e.code];
+					return ctx.body = e.context;
+				}
+			}
 
-		// 	throw ctx.throw(e);
-		// }
+			throw ctx.throw(e);
+		}
 	});
 
 apiRouter
