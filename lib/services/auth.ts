@@ -59,7 +59,7 @@ function validateRefreshToken(refreshToken: string) {
 	return jwt.verify(refreshToken, config.jwt.secret, {issuer: 'mustachebash', audience: 'mustachebash-refresh'});
 }
 
-export async function authenticateGoogleUser(token: string) {
+export async function authenticateGoogleUser(token: string, {userAgent, ip}: {userAgent: string, ip: string}) {
 	if(!token) throw new AuthServiceError('Missing token', 'UNAUTHORIZED');
 
 	let payload: TokenPayload | undefined, googleUserId: string | null;
@@ -138,9 +138,17 @@ export async function authenticateGoogleUser(token: string) {
 		refreshToken = generateRefreshToken(user, jti);
 
 		await sql`
-			UPDATE users
-			SET refresh_token_id = ${jti}
-			WHERE id = ${user.id}
+			INSERT INTO refresh_tokens (
+				id,
+				user_id,
+				user_agent,
+				ip
+			) VALUES (
+				${jti},
+				${user.id},
+				${userAgent},
+				${ip}
+			)
 		`;
 	} catch(e) {
 		throw new AuthServiceError('Failed to save refreshTokenId', 'DB_ERROR', e);
@@ -149,7 +157,7 @@ export async function authenticateGoogleUser(token: string) {
 	return {accessToken, refreshToken};
 }
 
-export async function refreshAccessToken(refreshToken: string) {
+export async function refreshAccessToken(refreshToken: string, {userAgent, ip}: {userAgent: string, ip: string}) {
 	let sub: string, jti: string;
 	try {
 		({ sub, jti } = validateRefreshToken(refreshToken));
@@ -159,8 +167,8 @@ export async function refreshAccessToken(refreshToken: string) {
 
 	let user;
 	try {
-		[user] = await sql`
-			SELECT id, display_name, role, sub_claim, refresh_token_id
+		[user] = await sql<User[]>`
+			SELECT id, display_name, role, sub_claim
 			FROM users
 			WHERE id = ${sub}
 		`;
@@ -168,8 +176,31 @@ export async function refreshAccessToken(refreshToken: string) {
 		throw new AuthServiceError('Failed to query for user', 'DB_ERROR', e);
 	}
 
+	let refreshTokenData;
+	try {
+		[refreshTokenData] = await sql`
+			SELECT user_id
+			FROM refresh_tokens
+			WHERE id = ${jti}
+		`;
+	} catch(e) {
+		throw new AuthServiceError('Failed to query for user', 'DB_ERROR', e);
+	}
+
 	// Revokable refresh tokens
-	if(user.refreshTokenId !== jti) throw new AuthServiceError('Invalid refresh token', 'UNAUTHORIZED');
+	if(!refreshTokenData) throw new AuthServiceError('Invalid refresh token', 'UNAUTHORIZED');
+	if(refreshTokenData.userId !== user.id) throw new AuthServiceError('Forged refresh token', 'UNAUTHORIZED');
+
+	// Update the metadata columns for the refresh token
+	try {
+		await sql`
+			UPDATE refresh_tokens
+			SET user_agent = ${userAgent}, ip = ${ip}, last_accessed = now()
+			WHERE id = ${jti}
+		`;
+	} catch(e) {
+		throw new AuthServiceError('Failed to query for user', 'DB_ERROR', e);
+	}
 
 	return generateAccessToken(user);
 }

@@ -92,7 +92,7 @@ apiRouter
 		// if(!ctx.request.body.ticketToken) throw ctx.throw(400);
 
 		// try {
-		// 	const response = await checkInWithTicket(ctx.request.body.ticketToken, ctx.state.user.username);
+		// 	const response = await checkInWithTicket(ctx.request.body.ticketToken, ctx.state.user.id);
 
 		// 	return ctx.body = response;
 		// } catch(e) {
@@ -131,7 +131,7 @@ apiRouter
 			let user;
 			switch(requestBody.authority) {
 				case 'google':
-					user = await authenticateGoogleUser(requestBody.token);
+					user = await authenticateGoogleUser(requestBody.token, {userAgent: ctx.get('user-agent'), ip: ctx.ip});
 					break;
 			}
 
@@ -150,7 +150,7 @@ apiRouter
 		if(typeof requestBody.refreshToken !== 'string') throw ctx.throw(400);
 
 		try {
-			const accessToken = await refreshAccessToken(requestBody.refreshToken);
+			const accessToken = await refreshAccessToken(requestBody.refreshToken, {userAgent: ctx.get('user-agent'), ip: ctx.ip});
 
 			ctx.status = 201;
 			return ctx.body = {accessToken};
