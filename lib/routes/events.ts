@@ -1,6 +1,6 @@
 import Router from '@koa/router';
 import { authorizeUser, requiresPermission } from '../middleware/auth.js';
-import { getEvents, getEvent, createEvent, updateEvent, getEventSummary, getOpeningSales, getEventExtendedStats, getEventDailyTickets } from '../services/events.js';
+import { getEvents, getEvent, createEvent, updateEvent, getEventSummary, getOpeningSales, getEventExtendedStats, getEventDailyTickets, getEventCheckins } from '../services/events.js';
 
 const eventsRouter = new Router({
 	prefix: '/events'
@@ -87,7 +87,7 @@ eventsRouter
 			let chartData;
 			switch(chartType) {
 				case 'checkIns':
-					// chartData = await getEventCheckins(ctx.params.id);
+					chartData = await getEventCheckins(ctx.params.id);
 					break;
 
 				case 'openingSales':
