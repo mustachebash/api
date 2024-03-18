@@ -319,7 +319,7 @@ export async function getEventExtendedStats(id) {
 	}
 }
 
-export async function getEventDailyTickets(id) {
+export async function getEventDailyTickets(id: string) {
 	try {
 		const chart = (await sql`
 			SELECT
@@ -344,9 +344,9 @@ export async function getEventDailyTickets(id) {
 	}
 }
 
-export async function getOpeningSales(id) {
+export async function getOpeningSales(id: string) {
 	try {
-		const chart = (await sql`
+		const chart = (await sql<{minuteCreated: string; tickets: string}[]>`
 			SELECT
 				DATE_TRUNC('minute', (o.created AT TIME ZONE 'UTC')) AS minute_created,
 				SUM(oi.quantity) as tickets
@@ -365,6 +365,29 @@ export async function getOpeningSales(id) {
 		`).map(row => ({
 			...row,
 			tickets: Number(row.tickets)
+		}));
+
+
+		return chart;
+	} catch(e) {
+		throw new EventsServiceError('Could not query event extended stats', 'UNKNOWN', e);
+	}
+}
+
+export async function getEventCheckins(id: string) {
+	try {
+		const chart = (await sql<{minuteCheckedIn: string; checkins: string}[]>`
+			SELECT
+				date_bin('15 minutes', (g.check_in_time AT TIME ZONE 'UTC'), TIMESTAMP '2010-01-01') AS minute_checked_in,
+				count(g.id) as checkins
+			FROM guests AS g
+			WHERE g.event_id = ${id}
+			AND g.status = 'checked_in'
+			GROUP BY minute_checked_in
+			ORDER BY 1 ASC;
+		`).map(row => ({
+			...row,
+			checkins: Number(row.checkins)
 		}));
 
 
