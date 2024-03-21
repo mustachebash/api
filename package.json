@@ -1,6 +1,6 @@
 {
   "name": "mustachebash-api",
-  "version": "1.15.4",
+  "version": "1.15.5",
   "description": "Mustache Bash API",
   "main": "dist/index.js",
   "type": "module",
