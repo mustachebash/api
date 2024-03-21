@@ -121,7 +121,7 @@ export async function getCustomerActiveTicketsByOrderId(orderId: string) {
 				eventId: row.eventId,
 				eventName: row.eventName,
 				eventDate: row.eventDate,
-				// qrPayload
+				qrPayload
 			});
 		}
 
