@@ -594,3 +594,39 @@ export async function refundOrder(id) {
 		throw new OrdersServiceError('Order voiding failed', 'UNKNOWN', e);
 	}
 }
+
+export async function getOrdersForReminders({ eventId, orderBy = 'created', sort = 'desc' }) {
+	try {
+		const orders = await sql`
+			WITH FilteredOrders AS (
+				SELECT o.id
+				FROM orders as o
+				LEFT JOIN order_items as i
+					ON o.id = i.order_id
+				LEFT JOIN products as p
+					ON i.product_id = p.id
+				WHERE p.event_id = ${eventId}
+				GROUP BY o.id
+			)
+			SELECT
+				min(o.id::text) as order_id,
+				c.email as customer_email,
+				c.first_name as customer_first_name,
+				c.last_name as customer_last_name
+			FROM orders as o
+			LEFT JOIN order_items as i
+				ON o.id = i.order_id
+			LEFT JOIN customers as c
+				ON o.customer_id = c.id
+			WHERE o.id IN (SELECT id FROM FilteredOrders)
+			AND o.status = 'complete'
+			GROUP BY o.id, customer_email, customer_first_name, customer_last_name
+			ORDER BY o.created asc
+		`;
+
+		// https://github.com/porsager/postgres#numbers-bigint-numeric
+		return orders.map(convertAmountToNumber);
+	} catch(e) {
+		throw new OrdersServiceError('Could not query orders', 'UNKNOWN', e);
+	}
+}

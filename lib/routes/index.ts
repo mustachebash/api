@@ -32,6 +32,11 @@ apiRouter.use(promosRouter.routes());
 apiRouter.use(guestsRouter.routes());
 apiRouter.use(usersRouter.routes());
 
+apiRouter
+	.post('/reminder', authorizeUser, requiresPermission('admin'), async ctx => {
+
+	});
+
 // TODO: add route access to get all current `customer` orders
 // /v1/me/orders?token=<customer "access" token>
 apiRouter
