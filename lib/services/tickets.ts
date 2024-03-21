@@ -42,7 +42,9 @@ export async function getOrderTickets(orderId: string) {
 				e.name as event_name,
 				e.date as event_date,
 				g.ticket_seed,
-				g.status
+				g.status,
+				g.first_name,
+				g.last_name
 			FROM guests as g
 			LEFT JOIN events as e
 				ON e.id = g.event_id
@@ -64,6 +66,8 @@ export async function getOrderTickets(orderId: string) {
 			eventName: guest.eventName,
 			eventDate: guest.eventDate,
 			status: guest.status,
+			firstName: guest.firstName,
+			lastName: guest.lastName,
 			qrPayload
 		});
 	}
