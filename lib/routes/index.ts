@@ -8,7 +8,7 @@ import { authorizeUser, requiresPermission } from '../middleware/auth.js';
 import { authenticateGoogleUser, refreshAccessToken } from '../services/auth.js';
 import { getEventSettings } from '../services/events.js';
 import { validateOrderToken } from '../services/orders.js';
-import { checkInWithTicket, getCustomerActiveTicketsByOrderId } from '../services/tickets.js';
+import { checkInWithTicket, getCustomerActiveTicketsByOrderId, inspectTicket } from '../services/tickets.js';
 import customersRouter from './customers.js';
 import ordersRouter from './orders.js';
 import transactionsRouter from './transactions.js';
@@ -114,6 +114,23 @@ apiRouter
 					ctx.status = codeStatuses[e.code];
 					return ctx.body = e.context;
 				}
+			}
+
+			throw ctx.throw(e);
+		}
+	});
+
+apiRouter
+	.post('/inspect', authorizeUser, requiresPermission('doorman'), async ctx => {
+		if(!ctx.request.body.ticketToken) throw ctx.throw(400);
+
+		try {
+			const response = await inspectTicket(ctx.request.body.ticketToken);
+
+			return ctx.body = response;
+		} catch(e) {
+			if(isRecordLike(e)) {
+				if(e.code === 'TICKET_NOT_FOUND') throw ctx.throw(404);
 			}
 
 			throw ctx.throw(e);

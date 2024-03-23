@@ -288,6 +288,38 @@ export async function transferTickets(
 	};
 }
 
+export async function inspectTicket(ticketToken: string) {
+	let guest;
+	// For now, this is happening directly with ticket seeds
+	try {
+		[guest] = await sql`
+			SELECT
+				g.id,
+				g.first_name,
+				g.last_name,
+				g.status,
+				g.order_id,
+				g.created_reason,
+				g.admission_tier,
+				g.check_in_time,
+				e.id AS event_id,
+				e.name AS event_name,
+				e.date AS event_date,
+				e.status AS event_status
+			FROM guests AS g
+			LEFT JOIN events AS e
+				ON g.event_id = e.id
+			WHERE g.ticket_seed = ${ticketToken}
+		`;
+	} catch(e) {
+		throw new TicketsServiceError('Could not query guests for order', 'UNKNOWN', e);
+	}
+
+	if(!guest) throw new TicketsServiceError('Ticket not found for guest', 'TICKET_NOT_FOUND');
+
+	return guest;
+}
+
 export async function checkInWithTicket(ticketToken: string, scannedBy: string) {
 	let guest;
 	// For now, this is happening directly with ticket seeds
@@ -324,7 +356,7 @@ export async function checkInWithTicket(ticketToken: string, scannedBy: string) 
 
 
 	// Guests can't check in earlier than 1 hour before the event starts
-	if((new Date()).getTime() < (new Date(guest.eventDate)).getTime() - (1000 * 60 * 60 * 24 * 10)) throw new TicketsServiceError('Event has not started yet', 'EVENT_NOT_STARTED', guest);
+	if((new Date()).getTime() < (new Date(guest.eventDate)).getTime() - (1000 * 60 * 60)) throw new TicketsServiceError('Event has not started yet', 'EVENT_NOT_STARTED', guest);
 
 	// Ticket and check in is valid - mark guest as checked in
 	try {
