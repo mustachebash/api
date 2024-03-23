@@ -215,8 +215,8 @@ export function checkScope(userRole: string, scopeRequired: string) {
 		'god',
 		'admin',
 		'write',
-		'doorman',
-		'read'
+		'read',
+		'doorman'
 	];
 
 	const userLevel = roles.indexOf(userRole);
