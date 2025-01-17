@@ -1,7 +1,7 @@
 ARG NODE_VERSION=23.6-alpine3.20
 
 # Base
-FROM node:${NODE_VERSION} as base
+FROM node:${NODE_VERSION} AS base
 RUN mkdir -p /mustachebash
 WORKDIR /mustachebash
 COPY package.json package-lock.json ./
@@ -13,7 +13,7 @@ RUN --mount=type=cache,target=/root/.npm \
 	npm ci
 
 # Build
-FROM base as build
+FROM build-deps AS build
 # https://docs.docker.com/build/guide/mounts/
 RUN --mount=type=cache,target=/root/.npm \
 	--mount=type=bind,source=tsconfig.json,target=tsconfig.json \
@@ -21,7 +21,7 @@ RUN --mount=type=cache,target=/root/.npm \
 	npm run build; exit 0
 
 # Production
-FROM base as production
+FROM base AS production
 # https://docs.docker.com/build/guide/mounts/
 RUN --mount=type=cache,target=/root/.npm \
 	NODE_ENV=production npm ci
