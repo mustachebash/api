@@ -170,6 +170,18 @@ export async function createOrder({ paymentMethodNonce, cart = [], customer = {}
 		...(typeof p.totalSold === 'string' ? {totalSold: Number(p.totalSold)} : {})
 	}));
 
+	// Fetch all matching bundled products - for now it's just tickets
+	const bundledProducts = (await sql<Product[]>`
+		SELECT p.*
+		FROM products as p
+		WHERE p.type = 'bundle-ticket'
+		AND p.target_product_id in ${sql(products.map(i => i.id))}
+		AND status = 'active'
+	`).map(p => ({
+		...p,
+		...(typeof p.price === 'string' ? {price: Number(p.price)} : {})
+	}));
+
 	let promo;
 	if(promoId) {
 		[promo] = (await sql`
@@ -207,6 +219,7 @@ export async function createOrder({ paymentMethodNonce, cart = [], customer = {}
 	const productsToArchive = [];
 	const orderDetails = cart.map(i => {
 		const product = products.find(p => p.id === i.productId),
+			bundledProduct = bundledProducts.find(p => p.targetProductId === i.productId),
 			remaining = typeof product.maxQuantity === 'number' && product.maxQuantity > 0 ? product.maxQuantity - product.totalSold : null;
 
 		// Special promo quantity check
@@ -244,7 +257,8 @@ export async function createOrder({ paymentMethodNonce, cart = [], customer = {}
 
 		return {
 			...i,
-			product
+			product,
+			bundledProduct
 		};
 	});
 
@@ -369,6 +383,17 @@ export async function createOrder({ paymentMethodNonce, cart = [], customer = {}
 		orderId
 	}));
 
+	// Also add bundled products
+	orderDetails.forEach(i => {
+		if(i.bundledProduct) {
+			orderItems.push({
+				productId: i.bundledProduct.id,
+				quantity: i.quantity,
+				orderId
+			});
+		}
+	});
+
 	const transaction = {
 		id: uuidV4(),
 		amount: !Number.isNaN(btAmount) ? btAmount : null,
@@ -433,6 +458,26 @@ export async function createOrder({ paymentMethodNonce, cart = [], customer = {}
 					try {
 						await updateGuest(targetGuest.id, {
 							admissionTier: i.product.admissionTier
+						});
+					} catch(e) {
+						log.error(e, 'Error creating guest');
+					}
+				})();
+			}
+		}
+
+		// Handle bundled tickets
+		if(i.bundledProduct?.type === 'bundle-ticket') {
+			for (let j = 0; j < i.quantity; j++) {
+				(async () => {
+					try {
+						await createGuest({
+							firstName: dbCustomer.firstName,
+							lastName: dbCustomer.lastName  + (j > 0 ? ` Guest ${j}` : ''),
+							createdReason: 'purchase',
+							eventId: i.bundledProduct.eventId,
+							orderId,
+							admissionTier: i.bundledProduct.admissionTier
 						});
 					} catch(e) {
 						log.error(e, 'Error creating guest');
