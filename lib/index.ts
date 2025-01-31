@@ -80,7 +80,13 @@ app.use(
 			const origin = ctx.get('origin');
 
 			// Accept dev origins only in non-production environments
-			if(corsEnv !== 'production' && /^https?:\/\/localhost(:\d*)?$/.test(origin)) {
+			if(
+				corsEnv !== 'production'
+				&& (
+					/^https?:\/\/localhost(:\d*)?$/.test(origin) ||
+					/^https:\/\/.+\.local\.mrstache\.io$/.test(origin)
+				)
+			) {
 				return origin;
 			}
 
