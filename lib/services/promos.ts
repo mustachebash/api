@@ -7,7 +7,10 @@ import { sql } from '../utils/db.js';
 import { v4 as uuidV4 } from 'uuid';
 
 class PromoServiceError extends Error {
-	constructor(message = 'An unknown error occured', code = 'UNKNOWN', context) {
+	code: string;
+	context: unknown;
+
+	constructor(message = 'An unknown error occured', code = 'UNKNOWN', context?: unknown) {
 		super(message);
 
 		this.name = this.constructor.name;
@@ -17,6 +20,23 @@ class PromoServiceError extends Error {
 		Error.captureStackTrace(this, this.constructor);
 	}
 }
+
+type PromoType = 'single-use' | 'coupon';
+export type Promo = {
+	id: string;
+	created: Date;
+	createdBy: string;
+	price?: number;
+	percentDiscount?: number;
+	flatDiscount?: number;
+	productId: string;
+	productQuantity?: number;
+	recipientName?: string;
+	maxUses?: number;
+	status: string;
+	type: PromoType;
+	meta: Record<string, unknown>;
+};
 
 const promoColumns = [
 	'id',
@@ -35,14 +55,27 @@ const promoColumns = [
 	'meta'
 ];
 
-const convertPriceAndDiscountsToNumbers = p => ({
+const convertPriceAndDiscountsToNumbers = (p: Promo): Promo => ({
 	...p,
 	...(typeof p.price === 'string' ? {price: Number(p.price)} : {}),
 	...(typeof p.percentDiscount === 'string' ? {percentDiscount: Number(p.percentDiscount)} : {}),
 	...(typeof p.flatDiscount === 'string' ? {flatDiscount: Number(p.flatDiscount)} : {})
 });
 
-export async function createPromo({ price, type, productId, productQuantity = 1, recipientName, meta, createdBy }) {
+type PromoInput = {
+	price?: number;
+	flatDiscount?: number;
+	percentDiscount?: number;
+	type: PromoType;
+	productId: string;
+	productQuantity?: number;
+	maxUses?: number;
+	recipientName?: string;
+	meta: Record<string, unknown>;
+	createdBy: string;
+};
+type PromoInsert = Omit<Promo, 'created' | 'updated'>;
+export async function createPromo({ price, flatDiscount, percentDiscount, maxUses, type, productId, productQuantity = 1, recipientName, meta, createdBy }: PromoInput) {
 	if(!productId || !type) throw new PromoServiceError('Missing promo data', 'INVALID');
 	if(type === 'single-use') {
 		if(typeof productQuantity !== 'number' || productQuantity < 1 || productQuantity > 5) throw new PromoServiceError('Invalid product quantity for single-use promo', 'INVALID');
@@ -50,7 +83,7 @@ export async function createPromo({ price, type, productId, productQuantity = 1,
 		if(typeof price !== 'number') throw new PromoServiceError('Price must be a number', 'INVALID');
 	}
 
-	const promo = {
+	const promo: PromoInsert = {
 		id: uuidV4(),
 		status: 'active',
 		createdBy,
@@ -67,8 +100,14 @@ export async function createPromo({ price, type, productId, productQuantity = 1,
 		promo.productQuantity = productQuantity;
 	}
 
+	if(type === 'coupon') {
+		if(percentDiscount) promo.percentDiscount = percentDiscount;
+		if(flatDiscount) promo.flatDiscount = flatDiscount;
+		promo.maxUses = maxUses;
+	}
+
 	try {
-		const [createdPromo] = (await sql`
+		const [createdPromo] = (await sql<Promo[]>`
 			INSERT INTO promos ${sql(promo)}
 			RETURNING ${sql(promoColumns)}
 		`).map(convertPriceAndDiscountsToNumbers);
@@ -79,11 +118,11 @@ export async function createPromo({ price, type, productId, productQuantity = 1,
 	}
 }
 
-export async function getPromos({ eventId } = {}) {
+export async function getPromos({ eventId }: {eventId?: string;} = {}) {
 	try {
 		let promos;
 		if(eventId) {
-			promos = await sql`
+			promos = await sql<Promo[]>`
 				SELECT ${sql(promoColumns.map(c => `p.${c}`))}
 				FROM promos as p
 				JOIN products as pr
@@ -91,7 +130,7 @@ export async function getPromos({ eventId } = {}) {
 				WHERE pr.event_id = ${eventId}
 			`;
 		} else {
-			promos = await sql`
+			promos = await sql<Promo[]>`
 				SELECT ${sql(promoColumns)}
 				FROM promos
 			`;
@@ -103,10 +142,10 @@ export async function getPromos({ eventId } = {}) {
 	}
 }
 
-export async function getPromo(id) {
+export async function getPromo(id: string) {
 	let promo;
 	try {
-		[promo] = (await sql`
+		[promo] = (await sql<Promo[]>`
 			SELECT ${sql(promoColumns)}
 			FROM promos
 			WHERE id = ${id}
@@ -120,7 +159,7 @@ export async function getPromo(id) {
 	return promo;
 }
 
-export async function updatePromo(id, updates) {
+export async function updatePromo(id: string, updates: Record<string, unknown>) {
 	for(const u in updates) {
 		// Update whitelist
 		if(![
@@ -136,7 +175,7 @@ export async function updatePromo(id, updates) {
 
 	let promo;
 	try {
-		[promo] = (await sql`
+		[promo] = (await sql<Promo[]>`
 			UPDATE promos
 			SET ${sql(updates)}, updated = now()
 			WHERE id = ${id}

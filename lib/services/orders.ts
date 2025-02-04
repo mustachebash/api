@@ -9,6 +9,7 @@ import log from '../utils/log.js';
 import { sql } from '../utils/db.js';
 import { createGuest, updateGuest } from '../services/guests.js';
 import type { Product } from '../services/products.js';
+import type { Promo } from '../services/promos.js';
 import { braintree as btConfig, jwt as jwtConfig } from '../config.js';
 
 const { orderSecret } = jwtConfig;
@@ -182,12 +183,13 @@ export async function createOrder({ paymentMethodNonce, cart = [], customer = {}
 		...(typeof p.price === 'string' ? {price: Number(p.price)} : {})
 	}));
 
-	let promo;
+	let promo: Promo, promoUses: number;
 	if(promoId) {
-		[promo] = (await sql`
+		[promo] = (await sql<Promo[]>`
 			SELECT *
 			FROM promos
 			WHERE id = ${promoId}
+			AND status = 'active'
 		`).map(p => ({
 			...p,
 			...(typeof p.price === 'string' ? {price: Number(p.price)} : {}),
@@ -195,7 +197,14 @@ export async function createOrder({ paymentMethodNonce, cart = [], customer = {}
 			...(typeof p.flatDiscount === 'string' ? {flatDiscount: Number(p.flatDiscount)} : {})
 		}));
 
-		if(!promo || promo.status !== 'active') throw new OrdersServiceError('Invalid promo code', 'INVALID');
+		[promoUses] = (await sql`
+			SELECT count(id) as promoUses
+			FROM orders
+			WHERE promo_id = ${promoId}
+		`).map(pu => (pu.promoUses));
+
+		if(!promo) throw new OrdersServiceError('Invalid promo code', 'INVALID');
+		if(typeof promo.maxUses === 'number' && promo.maxUses <= promoUses) throw new OrdersServiceError('Promo code no longer available', 'GONE');
 	}
 
 	let targetGuest;
@@ -302,10 +311,17 @@ export async function createOrder({ paymentMethodNonce, cart = [], customer = {}
 			}
 
 			// If there's a percent discount
+			if(promo.flatDiscount && promo.type === 'coupon') {
+				itemPrice = i.product.price - promo.flatDiscount;
+				// Round to 2 decimal places
+				itemPrice = Math.round(itemPrice * 100) / 100;
+			}
+
+			// If there's a percent discount
 			if(promo.percentDiscount && promo.type === 'coupon') {
 				itemPrice = i.product.price - (i.product.price * (promo.percentDiscount / 100));
 				// Round to 2 decimal places
-				itemPrice = Math.round(amount * 100) / 100;
+				itemPrice = Math.round(itemPrice * 100) / 100;
 			}
 		}
 
