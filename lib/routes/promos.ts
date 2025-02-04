@@ -37,22 +37,23 @@ promosRouter
 		try {
 			const promo = await getPromo(ctx.params.id);
 
-			if(!promo) throw ctx.throw(404);
-			// If the promo has been used, return 410 GONE
-			if(promo.status !== 'active') throw ctx.throw(410);
+			if(promo.type === 'single-use') {
+				if(!promo) throw ctx.throw(404);
+				// If the promo has been used, return 410 GONE
+				if(promo.status !== 'active') throw ctx.throw(410);
 
-			const product = await getProduct(promo.productId);
-			delete promo.productId;
+				const product = await getProduct(promo.productId);
 
-			// if the product is no longer available, return 410 GONE
-			if(product.status !== 'active') throw ctx.throw(410);
+				// if the product is no longer available, return 410 GONE
+				if(product.status !== 'active') throw ctx.throw(410);
 
-			promo.product = {
-				id: product.id,
-				price: product.price,
-				description: product.description,
-				name: product.name
-			};
+				promo.product = {
+					id: product.id,
+					price: product.price,
+					description: product.description,
+					name: product.name
+				};
+			}
 
 			return ctx.body = promo;
 		} catch(e) {
