@@ -126,7 +126,7 @@ apiRouter
 		upsertEmailSubscriber(EMAIL_LIST, {email, firstName, lastName, tags: [EMAIL_TAG]});
 
 		ctx.status = 201;
-		return ctx.body = {newOrderTokens, parentOrderIds};
+		return ctx.body = {};
 	});
 
 apiRouter
