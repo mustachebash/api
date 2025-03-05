@@ -90,12 +90,26 @@ export async function getCustomerActiveTicketsByOrderId(orderId: string) {
 				g.order_id as guest_order_id,
 				e.id as event_id,
 				e.name as event_name,
-				e.date AT TIME ZONE 'UTC' event_date
+				e.date AT TIME ZONE 'UTC' event_date,
+				up.id as upgrade_product_id,
+				up.price as upgrade_price,
+				up.name as upgrade_name
 			FROM orders o
 			LEFT JOIN guests as g
 				on g.order_id = o.id
 			LEFT JOIN events as e
 				on g.event_id = e.id
+			LEFT JOIN order_items as oi
+				on oi.order_id = o.id
+				and (select event_id from products where id = oi.product_id) = g.event_id
+			LEFT JOIN products as p
+				on oi.product_id = p.id
+				and p.admission_tier = g.admission_tier
+				and g.event_id = p.event_id
+			LEFT JOIN products as up
+				on oi.product_id = up.target_product_id
+				and up.status = 'active'
+				and up.type = 'upgrade'
 			WHERE o.customer_id = (
 					SELECT customer_id
 					FROM orders
@@ -121,6 +135,9 @@ export async function getCustomerActiveTicketsByOrderId(orderId: string) {
 				eventId: row.eventId,
 				eventName: row.eventName,
 				eventDate: row.eventDate,
+				upgradeProductId: row.upgradeProductId,
+				upgradePrice: row.upgradePrice ? Number(row.upgradePrice) : null,
+				upgradeName: row.upgradeName,
 				qrPayload
 			});
 		}
