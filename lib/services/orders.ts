@@ -207,6 +207,8 @@ export async function createOrder({ paymentMethodNonce, cart = [], customer = {}
 		if(typeof promo.maxUses === 'number' && promo.maxUses <= promoUses) throw new OrdersServiceError('Promo code no longer available', 'GONE');
 	}
 
+	// targetGuestId is actually what the user sees as a "ticket", so the 1:1 restriction remains valid per upgrade product, however
+	// the API should maybe allow for an array of objects mapping guestIds to upgrade productIds so a user may upgrade multiple tickets at once
 	let targetGuest;
 	if(targetGuestId) {
 		if(products.length > 1 || products[0].type !== 'upgrade') throw new OrdersServiceError('Missing/incorrect Upgrade Product', 'INVALID');

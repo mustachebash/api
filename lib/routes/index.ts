@@ -7,8 +7,8 @@ import { isRecordLike } from '../utils/type-guards.js';
 import { authorizeUser, requiresPermission } from '../middleware/auth.js';
 import { authenticateGoogleUser, refreshAccessToken } from '../services/auth.js';
 import { getEventSettings } from '../services/events.js';
-import { validateOrderToken } from '../services/orders.js';
-import { checkInWithTicket, getCustomerActiveTicketsByOrderId, inspectTicket } from '../services/tickets.js';
+import { generateOrderToken, validateOrderToken } from '../services/orders.js';
+import { checkInWithTicket, getCustomerActiveTicketsByOrderId, inspectTicket, transferTickets } from '../services/tickets.js';
 import customersRouter from './customers.js';
 import ordersRouter from './orders.js';
 import transactionsRouter from './transactions.js';
@@ -19,6 +19,7 @@ import promosRouter from './promos.js';
 import guestsRouter from './guests.js';
 import usersRouter from './users.js';
 import { getCustomer } from '../services/customers.js';
+import { sendTransfereeConfirmation, upsertEmailSubscriber } from '../services/email.js';
 
 const apiRouter = new Router();
 
@@ -32,6 +33,8 @@ apiRouter.use(promosRouter.routes());
 apiRouter.use(guestsRouter.routes());
 apiRouter.use(usersRouter.routes());
 
+const EMAIL_LIST = '90392ecd5e',
+	EMAIL_TAG = 'Mustache Bash 2025 Attendee';
 // TODO: add route access to get all current `customer` orders
 // /v1/me/orders?token=<customer "access" token>
 apiRouter
@@ -55,6 +58,10 @@ apiRouter
 			throw ctx.throw(e);
 		}
 
+		if(!tickets.length) {
+			return ctx.status = 204;
+		}
+
 		let customer;
 		try {
 			customer = await getCustomer(tickets[0].customerId);
@@ -72,6 +79,54 @@ apiRouter
 			},
 			tickets
 		};
+	})
+	.post('/mytickets/transfers', async ctx => {
+		if(!ctx.request.body) throw ctx.throw(400);
+
+		if(!ctx.request.body.orderToken || typeof ctx.request.body.orderToken !== 'string') throw ctx.throw(400);
+
+		// Use the order token as authorization
+		try {
+			validateOrderToken(ctx.request.body.orderToken);
+		} catch(e) {
+			throw ctx.throw(e);
+		}
+
+		const selectedTickets = ctx.request.body.tickets,
+			transferee = ctx.request.body.transferee,
+			orderIds = new Set<string>(selectedTickets.map(ticket => ticket.orderId));
+
+		const newOrderTokens = [],
+			parentOrderIds = [];
+		for (const orderId of orderIds.values()) {
+			const guestIds = selectedTickets.filter(ticket => ticket.orderId === orderId).map(ticket => ticket.id);
+			try {
+				const { order } = await transferTickets(orderId, {transferee, guestIds}),
+					{ id, parentOrderId } = order;
+
+				parentOrderIds.push(parentOrderId);
+				try {
+					newOrderTokens.push(await generateOrderToken(id));
+				} catch(e) {
+					ctx.state.log.error(e, 'Error creating order token');
+				}
+			} catch(e) {
+				if(e.code === 'INVALID') throw ctx.throw(400, e, {expose: false});
+				if(e.code === 'NOT_FOUND') throw ctx.throw(404);
+
+				throw ctx.throw(e);
+			}
+		}
+
+		// Send a transfer email
+		const { email, firstName, lastName } = transferee;
+		// The first order token and parent order id are fine for this
+		sendTransfereeConfirmation(firstName, lastName, email, parentOrderIds[0], newOrderTokens[0]);
+		// Add them to the mailing list and tag as an attendee
+		upsertEmailSubscriber(EMAIL_LIST, {email, firstName, lastName, tags: [EMAIL_TAG]});
+
+		ctx.status = 201;
+		return ctx.body = {};
 	});
 
 apiRouter

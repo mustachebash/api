@@ -105,12 +105,14 @@ export async function createProduct({ price, name, description, type, eventId, a
 	}
 }
 
-export async function getProducts({eventId}: {eventId?: string} = {}) {
+export async function getProducts({eventId, type}: {eventId?: string; type?: string} = {}) {
 	try {
 		const products = await sql`
 			SELECT ${sql(productColumns)}
 			FROM products
-			${eventId ? sql`WHERE event_id = ${eventId}` : sql``}
+			WHERE true
+			${eventId ? sql`AND event_id = ${eventId}` : sql``}
+			${type ? sql`AND type = ${type}` : sql``}
 		`;
 
 		return products.map(convertPriceToNumber);
