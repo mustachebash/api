@@ -135,9 +135,12 @@ export async function getCustomerActiveTicketsByOrderId(orderId: string) {
 				eventId: row.eventId,
 				eventName: row.eventName,
 				eventDate: row.eventDate,
-				upgradeProductId: row.upgradeProductId,
-				upgradePrice: row.upgradePrice ? Number(row.upgradePrice) : null,
-				upgradeName: row.upgradeName,
+				upgradeProductId: null,
+				upgradePrice: null,
+				upgradeName: null,
+				// upgradeProductId: row.upgradeProductId,
+				// upgradePrice: row.upgradePrice ? Number(row.upgradePrice) : null,
+				// upgradeName: row.upgradeName,
 				qrPayload
 			});
 		}
