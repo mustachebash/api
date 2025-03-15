@@ -79,7 +79,7 @@ export async function getCustomerActiveTicketsByOrderId(orderId: string) {
 	let rows;
 	try {
 		rows = await sql`
-			SELECT
+			SELECT DISTINCT
 				o.created AT TIME ZONE 'UTC' AT TIME ZONE 'America/Los_Angeles' as order_created,
 				o.customer_id,
 				g.id as guest_id,
