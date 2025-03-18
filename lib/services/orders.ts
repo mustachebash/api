@@ -183,7 +183,7 @@ export async function createOrder({ paymentMethodNonce, cart = [], customer = {}
 		...(typeof p.price === 'string' ? {price: Number(p.price)} : {})
 	}));
 
-	let promo: Promo, promoUses: number;
+	let promo: Promo;
 	if(promoId) {
 		[promo] = (await sql<Promo[]>`
 			SELECT *
@@ -197,8 +197,8 @@ export async function createOrder({ paymentMethodNonce, cart = [], customer = {}
 			...(typeof p.flatDiscount === 'string' ? {flatDiscount: Number(p.flatDiscount)} : {})
 		}));
 
-		[promoUses] = (await sql`
-			SELECT count(id) as promoUses
+		const [promoUses] = (await sql<{promoUses: number}[]>`
+			SELECT count(id) as promo_uses
 			FROM orders
 			WHERE promo_id = ${promoId}
 		`).map(pu => (pu.promoUses));
