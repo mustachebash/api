@@ -206,9 +206,13 @@ export async function getEventSummary(id) {
 			SELECT
 				e.id as event_id,
 				count(g.id) FILTER (WHERE g.status <> 'archived') as total_guests,
+				count(g.id) FILTER (WHERE g.status <> 'archived' AND g.created_reason != 'comp') as total_paid_guests,
 				count(g.id) FILTER (WHERE g.created_reason = 'comp') as total_comped_guests,
 				count(g.id) FILTER (WHERE g.admission_tier = 'vip') as total_vip_guests,
-				count(g.id) FILTER (WHERE (g.created AT TIME ZONE 'UTC' AT TIME ZONE 'America/Los_Angeles')::date = (now() AT TIME ZONE 'America/Los_Angeles')::date) as guests_today,
+				count(g.id) FILTER (
+					WHERE (g.created AT TIME ZONE 'UTC' AT TIME ZONE 'America/Los_Angeles')::date = (now() AT TIME ZONE 'America/Los_Angeles')::date
+					AND g.created_reason = 'purchase'
+					) as guests_today,
 				count(g.id) FILTER (WHERE g.status = 'checked_in') as checked_in
 			FROM events as e
 			LEFT JOIN guests as g
@@ -218,6 +222,7 @@ export async function getEventSummary(id) {
 		`).map(s => ({
 			...s,
 			totalGuests: Number(s.totalGuests),
+			totalPaidGuests: Number(s.totalPaidGuests),
 			totalCompedGuests: Number(s.totalCompedGuests),
 			totalVipGuests: Number(s.totalVipGuests),
 			guestsToday: Number(s.guestsToday),
@@ -331,6 +336,7 @@ export async function getEventDailyTickets(id: string) {
 			LEFT JOIN products AS p
 				ON oi.product_id = p.id
 			WHERE p.event_id = ${id}
+			AND o.status != 'canceled'
 			GROUP BY date
 			ORDER BY 1 ASC;
 		`).map(row => ({
