@@ -128,6 +128,7 @@ export async function updateGuest(id, updates) {
 	if(Object.keys(updates).length === 1 && updates.updatedBy) throw new GuestsServiceError('Invalid product data', 'INVALID');
 
 	// Prevent accidental downgrading of a guest below their purchased tier
+	// TODO: this also inadvertantly prevents from upgrading guests that were created by transfers
 	let minimumAdmissionTier;
 	if (updates.admissionTier) {
 		try {
