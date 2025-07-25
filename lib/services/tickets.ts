@@ -8,7 +8,7 @@ import { createGuest } from '../services/guests.js';
 import log from '../utils/log.js';
 import { sql } from '../utils/db.js';
 
-class TicketsServiceError extends Error {
+export class TicketsServiceError extends Error {
 	code: string;
 	context?: unknown;
 
@@ -146,6 +146,55 @@ export async function getCustomerActiveTicketsByOrderId(orderId: string) {
 		}
 
 		return tickets;
+	} catch(e) {
+		throw new TicketsServiceError('Could not query orders for customer', 'UNKNOWN', e);
+	}
+}
+
+export async function getCustomerActiveAccommodationsByOrderId(orderId: string) {
+	let rows;
+	try {
+		rows = await sql`
+			SELECT DISTINCT
+				o.created AT TIME ZONE 'UTC' AT TIME ZONE 'America/Los_Angeles' as order_created,
+				o.id as order_id,
+				o.customer_id,
+				p."name" as product_name,
+				e.id as event_id,
+				e.name as event_name,
+				e.date AT TIME ZONE 'UTC' event_date
+			FROM orders o
+			LEFT JOIN order_items as oi
+				on oi.order_id = o.id
+			LEFT JOIN events as e
+				on (select event_id from products where id = oi.product_id) = e.id
+			LEFT JOIN products as p
+				on oi.product_id = p.id
+			WHERE o.customer_id = (
+					SELECT customer_id
+					FROM orders
+					WHERE id = ${orderId}
+				)
+			AND p."type" = 'accomodation'
+			AND e.status = 'active'
+			AND o.status = 'complete'
+		`;
+
+		// Inject the QR Codes
+		const accomodations = [];
+		for (const row of rows) {
+			accomodations.push({
+				customerId: row.customerId,
+				orderId: row.orderId,
+				orderCreated: row.orderCreated,
+				productName: row.productName,
+				eventId: row.eventId,
+				eventName: row.eventName,
+				eventDate: row.eventDate
+			});
+		}
+
+		return accomodations;
 	} catch(e) {
 		throw new TicketsServiceError('Could not query orders for customer', 'UNKNOWN', e);
 	}

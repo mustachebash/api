@@ -7,7 +7,7 @@ import { getTransactions } from '../services/transactions.js';
 
 // TODO: make this configurable at some point
 const EMAIL_LIST = '90392ecd5e',
-	EMAIL_TAG = 'Mustache Bash 2025 Attendee';
+	EMAIL_TAG = 'Mustache Bash SF 2025 Attendee';
 
 const ordersRouter = new Router({
 	prefix: '/orders'

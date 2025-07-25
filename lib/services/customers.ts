@@ -6,7 +6,10 @@
 import { sql } from '../utils/db.js';
 import { v4 as uuidV4 } from 'uuid';
 
-class CustomerServiceError extends Error {
+export class CustomerServiceError extends Error {
+	code: string;
+	context?: unknown;
+
 	constructor(message = 'An unknown error occured', code = 'UNKNOWN', context) {
 		super(message);
 

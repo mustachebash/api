@@ -1,8 +1,9 @@
 import Router from '@koa/router';
+import { AppContext } from '../index.js';
 import { authorizeUser, requiresPermission } from '../middleware/auth.js';
 import { createCustomer, getCustomers, getCustomer, updateCustomer } from '../services/customers.js';
 
-const customersRouter = new Router({
+const customersRouter = new Router<AppContext['state'], AppContext>({
 	prefix: '/customers'
 });
 

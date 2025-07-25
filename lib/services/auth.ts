@@ -1,9 +1,8 @@
 /**
  * Auth service
  * Handles user authentication and authorization, as well as user management
- * @type {object}
  */
-import jwt, { JwtPayload } from 'jsonwebtoken';
+import jwt from 'jsonwebtoken';
 import { v4 as uuidV4 } from 'uuid';
 import { OAuth2Client, TokenPayload} from 'google-auth-library';
 import { sql } from '../utils/db.js';
@@ -13,6 +12,7 @@ const googleAuthClient = new OAuth2Client();
 
 export type User = {
 	id: string;
+	username: string;
 	displayName: string;
 	role: string;
 	subClaim: string;
@@ -33,6 +33,11 @@ class AuthServiceError extends Error {
 	}
 }
 
+type AccessToken = {
+	sub: string;
+	role: string;
+	name: string;
+};
 function generateAccessToken(user: User) {
 	return jwt.sign({
 		exp: Math.floor(Date.now()/1000) + (60*20), // In seconds, 20m expiration
@@ -44,6 +49,23 @@ function generateAccessToken(user: User) {
 	config.jwt.secret);
 }
 
+export function validateAccessToken(accessToken: string) {
+	const tokenPayload = jwt.verify(accessToken, config.jwt.secret, {issuer: 'mustachebash'});
+
+	if(
+		typeof tokenPayload !== 'object' ||
+		typeof tokenPayload.sub !== 'string' ||
+		!tokenPayload.sub ||
+		typeof tokenPayload.role !== 'string'
+	) throw new AuthServiceError('Invalid token', 'UNAUTHORIZED');
+
+	return tokenPayload as AccessToken;
+}
+
+type RefreshToken = {
+	jti: string;
+	sub: string;
+};
 function generateRefreshToken(user: User, jti: string) {
 	return jwt.sign({
 		exp: Math.floor(Date.now()/1000) + (60*60*24*30), // In seconds, 30d expiration
@@ -56,7 +78,17 @@ function generateRefreshToken(user: User, jti: string) {
 }
 
 function validateRefreshToken(refreshToken: string) {
-	return jwt.verify(refreshToken, config.jwt.secret, {issuer: 'mustachebash', audience: 'mustachebash-refresh'});
+	const tokenPayload = jwt.verify(refreshToken, config.jwt.secret, {issuer: 'mustachebash', audience: 'mustachebash-refresh'});
+
+	if(
+		typeof tokenPayload !== 'object' ||
+		typeof tokenPayload.sub !== 'string' ||
+		!tokenPayload.sub ||
+		typeof tokenPayload.jti !== 'string' ||
+		!tokenPayload.jti
+	) throw new AuthServiceError('Invalid token', 'UNAUTHORIZED');
+
+	return tokenPayload as RefreshToken;
 }
 
 export async function authenticateGoogleUser(token: string, {userAgent, ip}: {userAgent: string, ip: string}) {
@@ -72,7 +104,10 @@ export async function authenticateGoogleUser(token: string, {userAgent, ip}: {us
 		payload = ticket.getPayload();
 		googleUserId = ticket.getUserId();
 	} catch(e) {
-		throw new AuthServiceError(e.message, 'UNAUTHORIZED');
+		if(e instanceof Error)
+			throw new AuthServiceError(e.message, 'UNAUTHORIZED');
+
+		throw new AuthServiceError('Failed to verify Google token', 'UNAUTHORIZED');
 	}
 
 	if(!payload || !googleUserId) throw new AuthServiceError('Invalid token', 'UNAUTHORIZED');
@@ -203,10 +238,6 @@ export async function refreshAccessToken(refreshToken: string, {userAgent, ip}: 
 	}
 
 	return generateAccessToken(user);
-}
-
-export function validateAccessToken(accessToken: string) {
-	return jwt.verify(accessToken, config.jwt.secret, {issuer: 'mustachebash'});
 }
 
 export function checkScope(userRole: string, scopeRequired: string) {
