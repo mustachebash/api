@@ -8,7 +8,7 @@ import { postgres as pgConfig } from '../config.js';
 
 export const sql = postgres({
 	host: pgConfig.host,
-	port: pgConfig.port,
+	port: pgConfig.port ? Number(pgConfig.port) : 5432,
 	username: pgConfig.username,
 	password: pgConfig.password,
 	database: pgConfig.database,

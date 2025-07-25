@@ -178,6 +178,7 @@ export async function getEventSettings(id) {
 							'status', p.status,
 							'eventId', p.event_id,
 							'admissionTier', p.admission_tier,
+							'type', p.type,
 							'meta', p.meta
 						)
 					) FILTER (WHERE p.id IS NOT NULL),

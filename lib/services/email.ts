@@ -54,14 +54,14 @@ export function sendReceipt(guestFirstName, guestLastName, guestEmail, confirmat
 	mailgun.messages().send({
 		from: 'Mustache Bash Tickets <contact@mustachebash.com>',
 		to: guestFirstName + ' ' + guestLastName + ' <' + guestEmail + '> ',
-		subject: 'Your Tickets & Confirmation For San Diego Mustache Bash 2025',
+		subject: 'Your Tickets & Confirmation For San Francisco Mustache Bash 2025',
 		html: `
 <!doctype html>
 <html>
 	<head>
 		<meta name="viewport" content="width=device-width">
 		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-		<title>The Mustache Bash SD 2025 Confirmation</title>
+		<title>The Mustache Bash SF 2025 Confirmation</title>
 		<style>
 @media only screen and (max-width: 620px) {
 	table[class=body] h1 {
@@ -136,7 +136,7 @@ table[class=body] .article {
 					<div class="content" style="box-sizing: border-box; display: block; margin: 0 auto; max-width: 580px; padding: 10px;">
 
 						<!-- START CENTERED WHITE CONTAINER -->
-						<span class="preheader" style="color: transparent; display: none; height: 0; max-height: 0; max-width: 0; opacity: 0; overflow: hidden; mso-hide: all; visibility: hidden; width: 0;">The Mustache Bash San Diego - Tickets and Confirmation #${confirmation}. Thanks for ordering a Bash Pass!</span>
+						<span class="preheader" style="color: transparent; display: none; height: 0; max-height: 0; max-width: 0; opacity: 0; overflow: hidden; mso-hide: all; visibility: hidden; width: 0;">The Mustache Bash San Francisco - Tickets and Confirmation #${confirmation}. Thanks for ordering a Bash Pass!</span>
 						<table role="presentation" class="main" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; background: #ffffff; border-radius: 3px; width: 100%;" width="100%">
 
 							<!-- START MAIN CONTENT AREA -->
@@ -164,7 +164,7 @@ table[class=body] .article {
 						<p style="font-family: sans-serif; font-size: 24px; font-weight: normal; margin: 0; margin-bottom: 15px;">
 														<strong><a style="color: #0e2245;" href="https://mustachebash.com/my-tickets?t=${orderToken}">VIEW TICKETS</a></strong>
 												</p>
-												<p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">We're thrilled you're coming to the 2025 SD Mustache Bash! Keep this confirmation for your records, and on Bash day, bring your tickets linked above (note: printouts and screenshots WILL NOT be accepted) along with a valid photo ID for each guest to get in. Do not forward this email or ticket link to anyone.</p>
+												<p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">We're thrilled you're coming to the 2025 SF Mustache Bash! Keep this confirmation for your records, and on Bash day, bring your tickets linked above (note: printouts and screenshots WILL NOT be accepted) along with a valid photo ID for each guest to get in. Do not forward this email or ticket link to anyone.</p>
 												<p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Check out our <a href="https://mustachebash.com/info?utm_source=confirmation-email">FAQ page</a> for more info, and reply here or email us at <a href="mailto:contact@mustachebash.com">contact@mustachebash.com</a> if you have questions about your purchase.</p>
 												<p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Thanks again, we can’t wait to boogie with you.</p>
 												<p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">
@@ -210,14 +210,14 @@ export function sendUpgradeReceipt(customerFirstName: string, customerLastName: 
 	mailgun.messages().send({
 		from: 'Mustache Bash Tickets <contact@mustachebash.com>',
 		to: customerFirstName + ' ' + customerLastName + ' <' + customerEmail + '> ',
-		subject: 'Your VIP Upgrade Confirmation For San Diego Mustache Bash 2025',
+		subject: 'Your VIP Upgrade Confirmation For San Francisco Mustache Bash 2025',
 		html: `
 <!doctype html>
 <html>
 	<head>
 		<meta name="viewport" content="width=device-width">
 		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-		<title>The Mustache Bash SD 2025 Confirmation</title>
+		<title>The Mustache Bash SF 2025 Confirmation</title>
 		<style>
 @media only screen and (max-width: 620px) {
 	table[class=body] h1 {
@@ -292,7 +292,7 @@ table[class=body] .article {
 					<div class="content" style="box-sizing: border-box; display: block; margin: 0 auto; max-width: 580px; padding: 10px;">
 
 						<!-- START CENTERED WHITE CONTAINER -->
-						<span class="preheader" style="color: transparent; display: none; height: 0; max-height: 0; max-width: 0; opacity: 0; overflow: hidden; mso-hide: all; visibility: hidden; width: 0;">The Mustache Bash San Diego - Tickets and Confirmation #${confirmation}. Thanks for ordering a Bash Pass!</span>
+						<span class="preheader" style="color: transparent; display: none; height: 0; max-height: 0; max-width: 0; opacity: 0; overflow: hidden; mso-hide: all; visibility: hidden; width: 0;">The Mustache Bash San Francisco - Tickets and Confirmation #${confirmation}. Thanks for ordering a Bash Pass!</span>
 						<table role="presentation" class="main" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; background: #ffffff; border-radius: 3px; width: 100%;" width="100%">
 
 							<!-- START MAIN CONTENT AREA -->
@@ -318,7 +318,7 @@ table[class=body] .article {
 									<strong>Total:</strong> $${amount}
 												</p>
 
-												<p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">We're thrilled you're coming to the 2025 SD Mustache Bash in VIP style! Use the ticket link in your original order to access your newly upgraded tickets.</p>
+												<p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">We're thrilled you're coming to the 2025 SF Mustache Bash in VIP style! Use the ticket link in your original order to access your newly upgraded tickets.</p>
 												<p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Check out our <a href="https://mustachebash.com/info?utm_source=confirmation-email">FAQ page</a> for more info, and reply here or email us at <a href="mailto:contact@mustachebash.com">contact@mustachebash.com</a> if you have questions about your purchase.</p>
 												<p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Thanks again, we can’t wait to boogie with you.</p>
 												<p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">
@@ -364,7 +364,7 @@ export function sendTransfereeConfirmation(transfereeFirstName, transfereeLastNa
 	mailgun.messages().send({
 		from: 'Mustache Bash Tickets <contact@mustachebash.com>',
 		to: transfereeFirstName + ' ' + transfereeLastName + ' <' + transfereeEmail + '> ',
-		subject: 'Your Tickets & Transfer Confirmation For San Diego Mustache Bash 2025',
+		subject: 'Your Tickets & Transfer Confirmation For San Francisco Mustache Bash 2025',
 		html: `
 <!doctype html>
 <html>
@@ -446,7 +446,7 @@ table[class=body] .article {
 					<div class="content" style="box-sizing: border-box; display: block; margin: 0 auto; max-width: 580px; padding: 10px;">
 
 						<!-- START CENTERED WHITE CONTAINER -->
-						<span class="preheader" style="color: transparent; display: none; height: 0; max-height: 0; max-width: 0; opacity: 0; overflow: hidden; mso-hide: all; visibility: hidden; width: 0;">The Mustache Bash San Diego - Tickets and Confirmation #${parentOrderId.substring(0, 8)}. Thanks for ordering a Bash Pass!</span>
+						<span class="preheader" style="color: transparent; display: none; height: 0; max-height: 0; max-width: 0; opacity: 0; overflow: hidden; mso-hide: all; visibility: hidden; width: 0;">The Mustache Bash San Francisco - Tickets and Confirmation #${parentOrderId.substring(0, 8)}. Thanks for ordering a Bash Pass!</span>
 						<table role="presentation" class="main" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; background: #ffffff; border-radius: 3px; width: 100%;" width="100%">
 
 							<!-- START MAIN CONTENT AREA -->
@@ -472,7 +472,7 @@ table[class=body] .article {
 						<p style="font-family: sans-serif; font-size: 18px; font-weight: normal; margin: 0; margin-bottom: 15px;">
 														<strong><a style="color: #0e2245;" href="https://mustachebash.com/my-tickets?t=${orderToken}">VIEW TICKETS</a></strong>
 												</p>
-												<p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">We're thrilled you're coming to the 2025 SD Mustache Bash! Keep this confirmation for your records, and on Bash day, bring your tickets linked above (note: printouts and screenshots WILL NOT be accepted) along with a valid photo ID for each guest to get in. Do not forward this email or ticket link to anyone.</p>
+												<p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">We're thrilled you're coming to the 2025 SF Mustache Bash! Keep this confirmation for your records, and on Bash day, bring your tickets linked above (note: printouts and screenshots WILL NOT be accepted) along with a valid photo ID for each guest to get in. Do not forward this email or ticket link to anyone.</p>
 												<p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Check out our <a href="https://mustachebash.com/info?utm_source=confirmation-email">FAQ page</a> for more info, and reply here or email us at <a href="mailto:contact@mustachebash.com">contact@mustachebash.com</a> if you have questions about your purchase.</p>
 												<p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Thanks again, we can’t wait to boogie with you.</p>
 												<p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">

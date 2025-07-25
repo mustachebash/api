@@ -1,20 +1,23 @@
-import Koa from 'koa';
+import Koa, { HttpError } from 'koa';
 import type { DefaultState, ParameterizedContext, Middleware, Context, Next } from 'koa';
 import Router from '@koa/router';
 import bodyParser from 'koa-bodyparser';
 import cors from '@koa/cors';
 import { v4 as uuidV4 } from 'uuid';
 import log, { Logger } from './utils/log.js';
-import type { User } from './services/auth.js';
 import apiRouter from './routes/index.js';
 
 type JSONValue = string | number | boolean | null | { [x: string]: JSONValue | unknown } | Array<JSONValue>;
 
 interface MustacheBashState extends DefaultState {
-	user: User;
+	user: {
+		id: string;
+		role: string;
+	};
 	accessToken: string;
 	requestId: string;
 	log: Logger;
+	responseTime: number;
 }
 
 interface MustacheBashContext extends Context {
@@ -24,10 +27,6 @@ interface MustacheBashContext extends Context {
 
 	body: JSONValue;
 }
-
-// type AppState = {
-// 	responseTime: number;
-// };
 
 // Create the Koa instance
 const app = new Koa<MustacheBashState, MustacheBashContext>(),
@@ -45,6 +44,27 @@ const appRouter = new Router<AppContext['state'], AppContext>();
 // App setup
 app.proxy = true;
 app.proxyIpHeader = 'X-Real-IP';
+
+/**
+ * Global error handler
+ * Errors should be thrown directly from middleware and controllers to be handled here
+ */
+app.use(async (ctx, next) => {
+	try {
+		await next();
+	} catch(e) {
+		if(e instanceof HttpError) {
+			ctx.status = e.status
+
+			ctx.body = e.expose ? e.message : 'Internal Server Error';
+		} else if(e instanceof Error) {
+			ctx.status = 500;
+			ctx.body = 'Internal Server Error';
+		}
+
+		ctx.app.emit('error', e, ctx);
+	}
+});
 
 /**
  * Attach API Version Header
@@ -181,7 +201,7 @@ app.use(appRouter.routes());
 app.use(ctx => ctx.throw(404));
 
 /**
- * Global error handler
+ * Global error logger
  * Errors should be thrown directly from middleware and controllers to be handled here
  */
 app.on('error', (err, ctx) => {

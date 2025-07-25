@@ -49,6 +49,7 @@ export type Product = {
 	name: string;
 	description: string;
 	type: ProductType;
+	maxQuantity: number | null;
 	eventId: string;
 	admissionTier: string;
 	targetProductId: string;
@@ -56,7 +57,7 @@ export type Product = {
 	meta: Record<string, unknown>;
 };
 
-export async function createProduct({ price, name, description, type, eventId, admissionTier, targetProductId, promo, meta }: Omit<Product, 'id'>) {
+export async function createProduct({ price, name, description, type, maxQuantity, eventId, admissionTier, targetProductId, promo, meta }: Omit<Product, 'id'>) {
 	if(!name || !description || !type) throw new ProductsServiceError('Missing product data', 'INVALID');
 	if(typeof price !== 'number') throw new ProductsServiceError('Price must be a number', 'INVALID');
 	if(type === 'ticket' && (!eventId || !admissionTier)) throw new ProductsServiceError('No event set for ticket', 'INVALID');
@@ -69,6 +70,7 @@ export async function createProduct({ price, name, description, type, eventId, a
 		name,
 		description,
 		type,
+		maxQuantity: maxQuantity || null,
 		meta: {
 			...meta
 		}
@@ -89,6 +91,12 @@ export async function createProduct({ price, name, description, type, eventId, a
 
 	if(type === 'upgrade') {
 		product.targetProductId = targetProductId;
+		product.admissionTier = admissionTier;
+		product.promo = Boolean(promo);
+	}
+
+	if(type === 'accomodation') {
+		product.eventId = eventId;
 		product.admissionTier = admissionTier;
 		product.promo = Boolean(promo);
 	}

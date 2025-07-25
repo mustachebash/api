@@ -1,7 +1,9 @@
+import { Next } from 'koa';
+import { AppContext } from '../index.js';
 import { validateAccessToken, checkScope } from '../services/auth.js';
 
 
-export async function authorizeUser(ctx, next) {
+export async function authorizeUser(ctx: AppContext, next: Next) {
 	const authHeader = ctx.headers.authorization && ctx.headers.authorization.split(' ');
 
 	if(!authHeader || authHeader.length !== 2 && authHeader[0] !== 'Bearer') throw ctx.throw(403);
@@ -15,7 +17,6 @@ export async function authorizeUser(ctx, next) {
 
 		ctx.state.user = {
 			id: sub,
-			username: sub,
 			role
 		};
 	} catch (e) {
@@ -25,8 +26,8 @@ export async function authorizeUser(ctx, next) {
 	await next();
 }
 
-export function requiresPermission(scopeRequired) {
-	return async (ctx, next) => {
+export function requiresPermission(scopeRequired: string) {
+	return async (ctx: AppContext, next: Next) => {
 		// Just don't even try if it's not there
 		if(!ctx.state.user || !ctx.state.user.role) throw ctx.throw(403);
 

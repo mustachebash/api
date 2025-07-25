@@ -1,14 +1,13 @@
 /**
  * API Router handles entity routing and miscellaneous
- * @type {Express Router}
  */
 import Router from '@koa/router';
-import { isRecordLike } from '../utils/type-guards.js';
+import { isRecordLike, isServiceError } from '../utils/type-guards.js';
 import { authorizeUser, requiresPermission } from '../middleware/auth.js';
 import { authenticateGoogleUser, refreshAccessToken } from '../services/auth.js';
 import { getEventSettings } from '../services/events.js';
 import { generateOrderToken, validateOrderToken } from '../services/orders.js';
-import { checkInWithTicket, getCustomerActiveTicketsByOrderId, inspectTicket, transferTickets } from '../services/tickets.js';
+import { checkInWithTicket, getCustomerActiveTicketsByOrderId, getCustomerActiveAccommodationsByOrderId, inspectTicket, transferTickets, TicketsServiceError } from '../services/tickets.js';
 import customersRouter from './customers.js';
 import ordersRouter from './orders.js';
 import transactionsRouter from './transactions.js';
@@ -18,10 +17,11 @@ import productsRouter from './products.js';
 import promosRouter from './promos.js';
 import guestsRouter from './guests.js';
 import usersRouter from './users.js';
-import { getCustomer } from '../services/customers.js';
+import { getCustomer, CustomerServiceError } from '../services/customers.js';
 import { sendTransfereeConfirmation, upsertEmailSubscriber } from '../services/email.js';
+import { AppContext } from '../index.js';
 
-const apiRouter = new Router();
+const apiRouter = new Router<AppContext['state'], AppContext>();
 
 apiRouter.use(customersRouter.routes());
 apiRouter.use(ordersRouter.routes());
@@ -41,34 +41,45 @@ apiRouter
 	.get('/mytickets', async ctx => {
 		if(!ctx.query.t || typeof ctx.query.t !== 'string') throw ctx.throw(400);
 
-		let orderId;
-		try {
-			({ sub: orderId } = validateOrderToken(ctx.query.t));
-		} catch(e) {
-			throw ctx.throw(e);
-		}
-		// TODO: make this one large query that returns all the public data needed
 
+		const { sub: orderId } = validateOrderToken(ctx.query.t);
+
+		// TODO: make this one large query that returns all the public data needed
 		let tickets;
 		try {
 			tickets = await getCustomerActiveTicketsByOrderId(orderId);
 		} catch(e) {
-			if (e.code === 'NOT_FOUND') throw ctx.throw(404);
+			if(isServiceError(e)) {
+				if (e.code === 'NOT_FOUND') throw ctx.throw(404);
+			}
 
-			throw ctx.throw(e);
+			throw e;
 		}
 
-		if(!tickets.length) {
+		let accommodations;
+		try {
+			accommodations = await getCustomerActiveAccommodationsByOrderId(orderId);
+		} catch(e) {
+			if(isServiceError(e)) {
+				if (e.code === 'NOT_FOUND') throw ctx.throw(404);
+			}
+
+			throw e;
+		}
+
+		if(!tickets.length && !accommodations.length) {
 			return ctx.status = 204;
 		}
 
 		let customer;
 		try {
-			customer = await getCustomer(tickets[0].customerId);
+			customer = await getCustomer(tickets[0]?.customerId || accommodations[0]?.customerId);
 		} catch(e) {
-			if (e.code === 'NOT_FOUND') throw ctx.throw(404);
+			if(isServiceError(e)) {
+				if (e.code === 'NOT_FOUND') throw ctx.throw(404);
+			}
 
-			throw ctx.throw(e);
+			throw e;
 		}
 
 		return ctx.body = {
@@ -77,20 +88,17 @@ apiRouter
 				lastName: customer.lastName,
 				email: customer.email
 			},
-			tickets
+			tickets,
+			accommodations
 		};
 	})
 	.post('/mytickets/transfers', async ctx => {
-		if(!ctx.request.body) throw ctx.throw(400);
+		if(!isRecordLike(ctx.request.body)) throw ctx.throw(400);
 
 		if(!ctx.request.body.orderToken || typeof ctx.request.body.orderToken !== 'string') throw ctx.throw(400);
 
 		// Use the order token as authorization
-		try {
-			validateOrderToken(ctx.request.body.orderToken);
-		} catch(e) {
-			throw ctx.throw(e);
-		}
+		validateOrderToken(ctx.request.body.orderToken);
 
 		const selectedTickets = ctx.request.body.tickets,
 			transferee = ctx.request.body.transferee,
