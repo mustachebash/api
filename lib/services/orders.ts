@@ -8,6 +8,7 @@ import { v4 as uuidV4 } from 'uuid';
 import log from '../utils/log.js';
 import { sql } from '../utils/db.js';
 import { createGuest, updateGuest } from '../services/guests.js';
+import type { Guest } from '../services/guests.js';
 import type { Product } from '../services/products.js';
 import type { Promo } from '../services/promos.js';
 import { braintree as btConfig, jwt as jwtConfig } from '../config.js';
@@ -56,13 +57,85 @@ const aggregateOrderItems = sql`
 	) as items
 `;
 
-const convertAmountToNumber = o => ({...o, ...(typeof o.amount === 'string' ? {amount: Number(o.amount)} : {})});
+type OrderStatus = 'complete' | 'canceled' | 'pending' | string;
+type OrderItemSummary = {
+	productId: string;
+	quantity: number;
+};
 
-export async function getOrders({ eventId, productId, status, limit, orderBy = 'created', sort = 'desc' }) {
+export type Order = {
+	id: string;
+	amount: number;
+	created?: number | Date;
+	customerId: string;
+	promoId?: string | null;
+	parentOrderId?: string | null;
+	status: OrderStatus;
+	meta?: Record<string, unknown>;
+};
+
+type OrderWithItems = Order & {
+	items: OrderItemSummary[];
+	customerEmail?: string | null;
+	customerFirstName?: string | null;
+	customerLastName?: string | null;
+};
+
+type OrderBaseRow = Omit<Order, 'amount'> & {amount: number | string};
+
+type OrderRow = Omit<OrderWithItems, 'amount'> & {amount: number | string};
+
+type OrderFilters = {
+	eventId?: string;
+	productId?: string;
+	status?: string;
+	limit?: number;
+	orderBy?: string;
+	sort?: 'asc' | 'desc';
+};
+
+type OrderItem = {
+	productId: string;
+	quantity: number;
+	orderId: string;
+};
+
+type CartItem = Pick<OrderItem, 'productId' | 'quantity'>;
+
+type TransactionInsert = {
+	id: string;
+	amount: number | null;
+	processor: string;
+	processorTransactionId: string;
+	processorCreatedAt: Date | string;
+	type: string;
+	orderId: string;
+	parentTransactionId?: string;
+};
+
+type CustomerRecord = {
+	id: string;
+	firstName: string;
+	lastName: string;
+	email: string;
+};
+
+type RefundableOrder = {
+	orderStatus: string;
+	transactionId: string;
+	transactionType: string;
+	processorTransactionId: string;
+	processor: string;
+	parentTransactionId: string | null;
+};
+
+const convertAmountToNumber = <T extends {amount: number | string}>(o: T) => ({...o, ...(typeof o.amount === 'string' ? {amount: Number(o.amount)} : {})});
+
+export async function getOrders({ eventId, productId, status, limit, orderBy = 'created', sort = 'desc' }: OrderFilters): Promise<OrderWithItems[]> {
 	try {
-		let orders;
+		let orders: OrderRow[];
 		if(eventId) {
-			orders = await sql`
+			orders = await sql<OrderRow[]>`
 				WITH FilteredOrders AS (
 					SELECT o.id
 					FROM orders as o
@@ -91,7 +164,7 @@ export async function getOrders({ eventId, productId, status, limit, orderBy = '
 				${(limit && Number(limit)) ? sql`LIMIT ${limit}` : sql``}
 			`;
 		} else if(productId) {
-			orders = await sql`
+			orders = await sql<OrderRow[]>`
 				WITH FilteredOrders AS (
 					SELECT o.id
 					FROM orders as o
@@ -113,7 +186,7 @@ export async function getOrders({ eventId, productId, status, limit, orderBy = '
 				${(limit && Number(limit)) ? sql`LIMIT ${limit}` : sql``}
 			`;
 		} else {
-			orders = await sql`
+			orders = await sql<OrderRow[]>`
 				SELECT
 					${sql(orderColumns.map(c => `o.${c}`))},
 					${aggregateOrderItems}
@@ -129,7 +202,7 @@ export async function getOrders({ eventId, productId, status, limit, orderBy = '
 		}
 
 		// https://github.com/porsager/postgres#numbers-bigint-numeric
-		return orders.map(convertAmountToNumber);
+		return orders.map<OrderWithItems>(convertAmountToNumber);
 	} catch(e) {
 		throw new OrdersServiceError('Could not query orders', 'UNKNOWN', e);
 	}
@@ -138,10 +211,7 @@ export async function getOrders({ eventId, productId, status, limit, orderBy = '
 type OrderInput = {
 	paymentMethodNonce: string;
 
-	cart: {
-		productId: string;
-		quantity: number;
-	}[];
+	cart: CartItem[];
 
 	customer: {
 		firstName: string;
@@ -153,7 +223,7 @@ type OrderInput = {
 
 	targetGuestId?: string;
 };
-export async function createOrder({ paymentMethodNonce, cart = [], customer = {}, promoId, targetGuestId }: OrderInput) {
+export async function createOrder({ paymentMethodNonce, cart = [], customer, promoId, targetGuestId }: OrderInput): Promise<{order: Order; transaction: TransactionInsert; customer: CustomerRecord}> {
 	// First do some validation
 	if (!cart.length || !paymentMethodNonce || !customer.firstName || !customer.lastName || !customer.email) throw new OrdersServiceError('Invalid payment parameters', 'INVALID');
 
@@ -183,7 +253,7 @@ export async function createOrder({ paymentMethodNonce, cart = [], customer = {}
 		...(typeof p.price === 'string' ? {price: Number(p.price)} : {})
 	}));
 
-	let promo: Promo;
+	let promo: Promo | undefined;
 	if(promoId) {
 		[promo] = (await sql<Promo[]>`
 			SELECT *
@@ -209,11 +279,11 @@ export async function createOrder({ paymentMethodNonce, cart = [], customer = {}
 
 	// targetGuestId is actually what the user sees as a "ticket", so the 1:1 restriction remains valid per upgrade product, however
 	// the API should maybe allow for an array of objects mapping guestIds to upgrade productIds so a user may upgrade multiple tickets at once
-	let targetGuest;
+	let targetGuest: Guest | undefined;
 	if(targetGuestId) {
 		if(products.length > 1 || products[0].type !== 'upgrade') throw new OrdersServiceError('Missing/incorrect Upgrade Product', 'INVALID');
 
-		[targetGuest] = await sql`
+		[targetGuest] = await sql<Guest[]>`
 			SELECT *
 			FROM guests
 			WHERE id = ${targetGuestId}
@@ -227,9 +297,9 @@ export async function createOrder({ paymentMethodNonce, cart = [], customer = {}
 	// if(!products.length || products.length !== cart.length) throw new OrdersServiceError('Empty/Invalid items in cart', 'INVALID');
 	if(!products.length || products.length !== cart.length) throw new OrdersServiceError('Unavailable items in cart', 'GONE');
 
-	const productsToArchive = [];
+	const productsToArchive: {id: string; eventId?: string; nextTierProductId: string | null}[] = [];
 	const orderDetails = cart.map(i => {
-		const product = products.find(p => p.id === i.productId),
+		const product = products.find(p => p.id === i.productId) as (Product & {totalSold: number}),
 			bundledProduct = bundledProducts.find(p => p.targetProductId === i.productId),
 			remaining = typeof product.maxQuantity === 'number' && product.maxQuantity > 0 ? product.maxQuantity - product.totalSold : null;
 
@@ -339,22 +409,22 @@ export async function createOrder({ paymentMethodNonce, cart = [], customer = {}
 
 	// Find or insert a customer record immediately before attempting charge
 	const normalizedEmail = customer.email.toLowerCase().trim();
-	let dbCustomer;
-	[dbCustomer] = await sql`
+	let dbCustomer: CustomerRecord;
+	[dbCustomer] = await sql<CustomerRecord[]>`
 		SELECT *
 		FROM customers
 		WHERE email = ${normalizedEmail}
 	`;
 
 	if(!dbCustomer) {
-		const newCustomer = {
+		const newCustomer: CustomerRecord = {
 			id: uuidV4(),
 			firstName: customer.firstName.trim(),
 			lastName: customer.lastName.trim(),
 			email: normalizedEmail
 		};
 
-		[dbCustomer] = await sql`
+		[dbCustomer] = await sql<CustomerRecord[]>`
 			INSERT INTO customers ${sql(newCustomer)}
 			RETURNING *
 		`;
@@ -388,14 +458,14 @@ export async function createOrder({ paymentMethodNonce, cart = [], customer = {}
 		btAmount = Number(braintreeTransaction.amount);
 
 	// Package the order, order_item, and transaction objects
-	const order = {
+	const order: Order = {
 		id: orderId,
 		customerId: dbCustomer.id,
 		status: 'complete',
 		amount
 	};
 
-	const orderItems = cart.map(i => ({
+	const orderItems: OrderItem[] = cart.map(i => ({
 		productId: i.productId,
 		quantity: i.quantity,
 		orderId
@@ -412,7 +482,7 @@ export async function createOrder({ paymentMethodNonce, cart = [], customer = {}
 		}
 	});
 
-	const transaction = {
+	const transaction: TransactionInsert = {
 		id: uuidV4(),
 		amount: !Number.isNaN(btAmount) ? btAmount : null,
 		processor: 'braintree',
@@ -512,14 +582,14 @@ export async function createOrder({ paymentMethodNonce, cart = [], customer = {}
 	};
 }
 
-export async function generateOrderToken(id) {
-	let order;
+export async function generateOrderToken(id: string): Promise<string> {
+	let order: Order;
 	try {
-		[order] = (await sql`
+		[order] = (await sql<OrderBaseRow[]>`
 			SELECT ${sql(orderColumns)}
 			FROM orders
 			WHERE id = ${id}
-		`).map(convertAmountToNumber);
+		`).map<Order>(convertAmountToNumber);
 	} catch(e) {
 		throw new OrdersServiceError('Could not query orders', 'UNKNOWN', e);
 	}
@@ -529,20 +599,20 @@ export async function generateOrderToken(id) {
 	return jwt.sign({
 		iss: 'mustachebash',
 		aud: 'tickets',
-		iat: Math.round(order.created / 1000),
+		iat: Math.round(Number(order.created) / 1000),
 		sub: id
 	},
 	orderSecret);
 }
 
-export function validateOrderToken(token) {
+export function validateOrderToken(token: string): string | jwt.JwtPayload {
 	return jwt.verify(token, orderSecret, {issuer: 'mustachebash'});
 }
 
-export async function getOrder(id) {
-	let order;
+export async function getOrder(id: string): Promise<OrderWithItems> {
+	let order: OrderWithItems;
 	try {
-		[order] = (await sql`
+		[order] = (await sql<OrderRow[]>`
 			SELECT
 				${sql(orderColumns.map(c => `o.${c}`))},
 				${aggregateOrderItems}
@@ -551,7 +621,7 @@ export async function getOrder(id) {
 				ON o.id = i.order_id
 			WHERE id = ${id}
 			GROUP BY o.id
-		`).map(convertAmountToNumber);
+		`).map<OrderWithItems>(convertAmountToNumber);
 	} catch(e) {
 		throw new OrdersServiceError('Could not query orders', 'UNKNOWN', e);
 	}
@@ -561,16 +631,16 @@ export async function getOrder(id) {
 	return order;
 }
 
-export async function getOrderTransfers(id) {
-	let transfers;
+export async function getOrderTransfers(id: string): Promise<Order[]> {
+	let transfers: Order[];
 	try {
-		transfers = (await sql`
+		transfers = (await sql<OrderBaseRow[]>`
 			SELECT
 				${sql(orderColumns.map(c => `o.${c}`))}
 			FROM orders as o
 			WHERE o.parent_order_id = ${id}
 			GROUP BY o.id
-		`).map(convertAmountToNumber);
+		`).map<Order>(convertAmountToNumber);
 	} catch(e) {
 		throw new OrdersServiceError('Could not query orders', 'UNKNOWN', e);
 	}
@@ -579,10 +649,10 @@ export async function getOrderTransfers(id) {
 }
 
 // Full order refund
-export async function refundOrder(id) {
-	let order;
+export async function refundOrder(id: string): Promise<void> {
+	let order: RefundableOrder;
 	try {
-		[order] = await sql`
+		[order] = await sql<RefundableOrder[]>`
 			SELECT
 				o.status AS order_status,
 				t.id AS transaction_id,
@@ -603,7 +673,7 @@ export async function refundOrder(id) {
 	if (!order) throw new OrdersServiceError('Order not found', 'NOT_FOUND');
 	if (order.orderStatus !== 'complete') throw new OrdersServiceError(`Cannot refund order with status: ${order.orderStatus}`, 'REFUND_NOT_ALLOWED');
 
-	const newTransaction = {
+	const newTransaction: Partial<TransactionInsert> & {processor: string; orderId: string; id: string; parentTransactionId?: string} = {
 		id: uuidV4(),
 		orderId: id,
 		processor: order.processor,

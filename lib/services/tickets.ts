@@ -31,10 +31,80 @@ function generateQRPayload(ticketSeed: string) {
 	return ticketSeed;
 }
 
-export async function getOrderTickets(orderId: string) {
-	let guests;
+type TicketRow = {
+	id: string;
+	admissionTier: string;
+	eventId: string;
+	eventName: string;
+	eventDate: Date;
+	ticketSeed: string;
+	status: string;
+	firstName: string;
+	lastName: string;
+};
+
+export type Ticket = {
+	id: string;
+	admissionTier: string;
+	eventId: string;
+	eventName: string;
+	eventDate: Date;
+	status: string;
+	firstName: string;
+	lastName: string;
+	qrPayload: string;
+};
+
+type CustomerTicketRow = {
+	orderCreated: Date;
+	customerId: string;
+	guestId: string;
+	guestStatus: string;
+	guestCheckInTime: Date | null;
+	guestAdmissionTier: string;
+	guestTicketSeed: string;
+	guestOrderId: string;
+	eventId: string;
+	eventName: string;
+	eventDate: Date;
+	upgradeProductId: string | null;
+	upgradePrice: number | string | null;
+	upgradeName: string | null;
+};
+
+export type CustomerTicket = {
+	id: string;
+	customerId: string;
+	orderId: string;
+	orderCreated: Date;
+	admissionTier: string;
+	status: string;
+	checkInTime: Date | null;
+	eventId: string;
+	eventName: string;
+	eventDate: Date;
+	upgradeProductId: string | null;
+	upgradePrice: number | null;
+	upgradeName: string | null;
+	qrPayload: string;
+};
+
+type AccommodationRow = {
+	orderCreated: Date;
+	orderId: string;
+	customerId: string;
+	productName: string;
+	eventId: string;
+	eventName: string;
+	eventDate: Date;
+};
+
+export type Accommodation = AccommodationRow;
+
+export async function getOrderTickets(orderId: string): Promise<Ticket[]> {
+	let guests: TicketRow[];
 	try {
-		guests = await sql`
+		guests = await sql<TicketRow[]>`
 			SELECT
 				g.id,
 				g.admission_tier,
@@ -55,7 +125,7 @@ export async function getOrderTickets(orderId: string) {
 	}
 
 	// Inject the QR Codes
-	const tickets = [];
+	const tickets: Ticket[] = [];
 	for (const guest of guests) {
 		const qrPayload = generateQRPayload(guest.ticketSeed);
 
@@ -75,10 +145,10 @@ export async function getOrderTickets(orderId: string) {
 	return tickets;
 }
 
-export async function getCustomerActiveTicketsByOrderId(orderId: string) {
-	let rows;
+export async function getCustomerActiveTicketsByOrderId(orderId: string): Promise<CustomerTicket[]> {
+	let rows: CustomerTicketRow[];
 	try {
-		rows = await sql`
+		rows = await sql<CustomerTicketRow[]>`
 			SELECT DISTINCT
 				o.created AT TIME ZONE 'UTC' AT TIME ZONE 'America/Los_Angeles' as order_created,
 				o.customer_id,
@@ -120,7 +190,7 @@ export async function getCustomerActiveTicketsByOrderId(orderId: string) {
 		`;
 
 		// Inject the QR Codes
-		const tickets = [];
+		const tickets: CustomerTicket[] = [];
 		for (const row of rows) {
 			const qrPayload = generateQRPayload(row.guestTicketSeed);
 
@@ -151,10 +221,10 @@ export async function getCustomerActiveTicketsByOrderId(orderId: string) {
 	}
 }
 
-export async function getCustomerActiveAccommodationsByOrderId(orderId: string) {
-	let rows;
+export async function getCustomerActiveAccommodationsByOrderId(orderId: string): Promise<Accommodation[]> {
+	let rows: AccommodationRow[];
 	try {
-		rows = await sql`
+		rows = await sql<AccommodationRow[]>`
 			SELECT DISTINCT
 				o.created AT TIME ZONE 'UTC' AT TIME ZONE 'America/Los_Angeles' as order_created,
 				o.id as order_id,
@@ -181,7 +251,7 @@ export async function getCustomerActiveAccommodationsByOrderId(orderId: string) 
 		`;
 
 		// Inject the QR Codes
-		const accomodations = [];
+		const accomodations: Accommodation[] = [];
 		for (const row of rows) {
 			accomodations.push({
 				customerId: row.customerId,

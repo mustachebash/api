@@ -39,7 +39,7 @@ const productColumns = [
 	'meta'
 ];
 
-const convertPriceToNumber = (p: Record<string, unknown>) => ({...p, ...(typeof p.price === 'string' ? {price: Number(p.price)} : {})});
+const convertPriceToNumber = <T extends {price: number | string}>(p: T) => ({...p, ...(typeof p.price === 'string' ? {price: Number(p.price)} : {})});
 
 type ProductType = 'ticket' | 'upgrade' | 'bundle-ticket' | 'accomodation';
 type AdmissionTier = 'general' | 'vip' | 'sponsor' | 'stachepass';
@@ -49,15 +49,22 @@ export type Product = {
 	name: string;
 	description: string;
 	type: ProductType;
+	status?: string;
 	maxQuantity: number | null;
-	eventId: string;
-	admissionTier: string;
-	targetProductId: string;
+	eventId?: string;
+	admissionTier?: AdmissionTier;
+	targetProductId?: string;
 	promo: boolean;
 	meta: Record<string, unknown>;
+	created?: Date;
+	updated?: Date;
+	updatedBy?: string | null;
 };
 
-export async function createProduct({ price, name, description, type, maxQuantity, eventId, admissionTier, targetProductId, promo, meta }: Omit<Product, 'id'>) {
+type ProductInput = Omit<Product, 'id' | 'created' | 'updated' | 'updatedBy' | 'status'> & { status?: string };
+type ProductUpdate = Partial<Pick<Product, 'name' | 'price' | 'description' | 'status' | 'maxQuantity' | 'meta'>> & {updatedBy?: string};
+
+export async function createProduct({ price, name, description, type, maxQuantity, eventId, admissionTier, targetProductId, promo, meta, status }: ProductInput): Promise<Product> {
 	if(!name || !description || !type) throw new ProductsServiceError('Missing product data', 'INVALID');
 	if(typeof price !== 'number') throw new ProductsServiceError('Price must be a number', 'INVALID');
 	if(type === 'ticket' && (!eventId || !admissionTier)) throw new ProductsServiceError('No event set for ticket', 'INVALID');
@@ -75,6 +82,10 @@ export async function createProduct({ price, name, description, type, maxQuantit
 			...meta
 		}
 	};
+
+	if(status) {
+		product.status = status;
+	}
 
 	if(type === 'ticket') {
 		product.eventId = eventId;
@@ -102,7 +113,7 @@ export async function createProduct({ price, name, description, type, maxQuantit
 	}
 
 	try {
-		const [createdProduct] = (await sql`
+		const [createdProduct] = (await sql<Product[]>`
 			INSERT INTO products ${sql(product)}
 			RETURNING ${sql(productColumns)}
 		`).map(convertPriceToNumber);
@@ -113,9 +124,9 @@ export async function createProduct({ price, name, description, type, maxQuantit
 	}
 }
 
-export async function getProducts({eventId, type}: {eventId?: string; type?: string} = {}) {
+export async function getProducts({eventId, type}: {eventId?: string; type?: string} = {}): Promise<Product[]> {
 	try {
-		const products = await sql`
+		const products = await sql<Product[]>`
 			SELECT ${sql(productColumns)}
 			FROM products
 			WHERE true
@@ -129,10 +140,10 @@ export async function getProducts({eventId, type}: {eventId?: string; type?: str
 	}
 }
 
-export async function getProduct(id: string) {
-	let product;
+export async function getProduct(id: string): Promise<Product> {
+	let product: Product;
 	try {
-		[product] = (await sql`
+		[product] = (await sql<Product[]>`
 			SELECT ${sql(productColumns)}
 			FROM products
 			WHERE id = ${id}
@@ -146,7 +157,7 @@ export async function getProduct(id: string) {
 	return product;
 }
 
-export async function updateProduct(id: string, updates: Record<string, unknown>) {
+export async function updateProduct(id: string, updates: ProductUpdate): Promise<Product> {
 	for(const u in updates) {
 		// Update whitelist
 		if(![
@@ -162,9 +173,9 @@ export async function updateProduct(id: string, updates: Record<string, unknown>
 
 	if(Object.keys(updates).length === 1 && updates.updatedBy) throw new ProductsServiceError('Invalid product data', 'INVALID');
 
-	let product;
+	let product: Product;
 	try {
-		[product] = (await sql`
+		[product] = (await sql<Product[]>`
 			UPDATE products
 			SET ${sql(updates)}, updated = now()
 			WHERE id = ${id}

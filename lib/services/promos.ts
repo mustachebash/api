@@ -25,6 +25,8 @@ type PromoType = 'single-use' | 'coupon';
 export type Promo = {
 	id: string;
 	created: Date;
+	updated?: Date;
+	updatedBy?: string | null;
 	createdBy: string;
 	price?: number;
 	percentDiscount?: number;
@@ -75,7 +77,7 @@ type PromoInput = {
 	createdBy: string;
 };
 type PromoInsert = Omit<Promo, 'created' | 'updated'>;
-export async function createPromo({ price, flatDiscount, percentDiscount, maxUses, type, productId, productQuantity = 1, recipientName, meta, createdBy }: PromoInput) {
+export async function createPromo({ price, flatDiscount, percentDiscount, maxUses, type, productId, productQuantity = 1, recipientName, meta, createdBy }: PromoInput): Promise<Promo> {
 	if(!productId || !type) throw new PromoServiceError('Missing promo data', 'INVALID');
 	if(type === 'single-use') {
 		if(typeof productQuantity !== 'number' || productQuantity < 1 || productQuantity > 5) throw new PromoServiceError('Invalid product quantity for single-use promo', 'INVALID');
@@ -118,7 +120,7 @@ export async function createPromo({ price, flatDiscount, percentDiscount, maxUse
 	}
 }
 
-export async function getPromos({ eventId }: {eventId?: string;} = {}) {
+export async function getPromos({ eventId }: {eventId?: string;} = {}): Promise<Promo[]> {
 	try {
 		let promos;
 		if(eventId) {
@@ -142,8 +144,8 @@ export async function getPromos({ eventId }: {eventId?: string;} = {}) {
 	}
 }
 
-export async function getPromo(id: string) {
-	let promo;
+export async function getPromo(id: string): Promise<Promo> {
+	let promo: Promo;
 	try {
 		[promo] = (await sql<Promo[]>`
 			SELECT ${sql(promoColumns)}
@@ -159,7 +161,7 @@ export async function getPromo(id: string) {
 	return promo;
 }
 
-export async function updatePromo(id: string, updates: Record<string, unknown>) {
+export async function updatePromo(id: string, updates: Record<string, unknown>): Promise<Promo> {
 	for(const u in updates) {
 		// Update whitelist
 		if(![
