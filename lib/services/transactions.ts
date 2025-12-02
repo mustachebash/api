@@ -14,7 +14,10 @@ const gateway = new braintree.BraintreeGateway({
 });
 
 class TransactionsServiceError extends Error {
-	constructor(message = 'An unknown error occured', code = 'UNKNOWN', context) {
+	code: string;
+	context?: unknown;
+
+	constructor(message = 'An unknown error occured', code = 'UNKNOWN', context?: unknown) {
 		super(message);
 
 		this.name = this.constructor.name;
@@ -38,11 +41,36 @@ const transactionColumns = [
 	'meta'
 ];
 
-const convertAmountToNumber = o => ({...o, ...(typeof o.amount === 'string' ? {amount: Number(o.amount)} : {})});
+export type Transaction = {
+	id: string;
+	amount: number;
+	created: Date;
+	type: string;
+	orderId: string;
+	processorTransactionId: string;
+	processorCreatedAt: Date;
+	processor: string;
+	parentTransactionId: string | null;
+	meta: Record<string, unknown>;
+};
 
-export async function getTransactions({ type, orderId, orderBy = 'created', limit, sort = 'desc' }) {
+type TransactionRaw = Omit<Transaction, 'amount'> & {
+	amount: string | number;
+};
+
+const convertAmountToNumber = (o: TransactionRaw): Transaction => ({...o, ...(typeof o.amount === 'string' ? {amount: Number(o.amount)} : {})} as Transaction);
+
+type GetTransactionsQuery = {
+	type?: string;
+	orderId?: string;
+	orderBy?: string;
+	limit?: number | string;
+	sort?: string;
+};
+
+export async function getTransactions({ type, orderId, orderBy = 'created', limit, sort = 'desc' }: GetTransactionsQuery = {}): Promise<Transaction[]> {
 	try {
-		const transactions = await sql`
+		const transactions = await sql<TransactionRaw[]>`
 			SELECT ${sql(transactionColumns)}
 			FROM transactions
 			WHERE 1 = 1
@@ -58,10 +86,10 @@ export async function getTransactions({ type, orderId, orderBy = 'created', limi
 	}
 }
 
-export async function getTransaction(id) {
-	let transaction;
+export async function getTransaction(id: string): Promise<Transaction> {
+	let transaction: Transaction | undefined;
 	try {
-		[transaction] = (await sql`
+		[transaction] = (await sql<TransactionRaw[]>`
 			SELECT ${sql(transactionColumns)}
 			FROM transactions
 			WHERE id = ${id}
@@ -75,10 +103,18 @@ export async function getTransaction(id) {
 	return transaction;
 }
 
-export async function getTransactionProcessorDetails(id) {
-	let transaction;
+type TransactionProcessorLookup = {
+	processorTransactionId: string;
+};
+
+type ProcessorDetails = braintree.Transaction & {
+	merchantId: string;
+};
+
+export async function getTransactionProcessorDetails(id: string): Promise<ProcessorDetails> {
+	let transaction: TransactionProcessorLookup | undefined;
 	try {
-		[transaction] = await sql`
+		[transaction] = await sql<TransactionProcessorLookup[]>`
 			SELECT processor_transaction_id
 			FROM transactions
 			WHERE id = ${id}

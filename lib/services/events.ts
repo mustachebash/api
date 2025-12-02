@@ -7,7 +7,10 @@ import { sql } from '../utils/db.js';
 import { v4 as uuidV4 } from 'uuid';
 
 class EventsServiceError extends Error {
-	constructor(message = 'An unknown error occured', code = 'UNKNOWN', context) {
+	code: string;
+	context?: unknown;
+
+	constructor(message = 'An unknown error occured', code = 'UNKNOWN', context?: unknown) {
 		super(message);
 
 		this.name = this.constructor.name;
@@ -34,17 +37,43 @@ const eventColumns = [
 	'meta'
 ];
 
-const convertNumericTypeToNumbers = e => ({
+export type Event = {
+	id: string;
+	name: string;
+	date: Date;
+	status: string;
+	created: Date;
+	updated: Date;
+	openingSales: Date | null;
+	salesEnabled: boolean;
+	maxCapacity: number | null;
+	budget: number | null;
+	alcoholRevenue: number | null;
+	foodRevenue: number | null;
+	meta: Record<string, unknown>;
+};
+
+type EventRaw = Omit<Event, 'alcoholRevenue' | 'budget' | 'foodRevenue'> & {
+	alcoholRevenue: string | number | null;
+	budget: string | number | null;
+	foodRevenue: string | number | null;
+};
+
+const convertNumericTypeToNumbers = (e: EventRaw): Event => ({
 	...e,
-	...(typeof e.alcoholRevenue === 'string' ? {alcoholRevenue: Number(e.alcoholRevenue)} : {}),
-	...(typeof e.budget === 'string' ? {budget: Number(e.budget)} : {}),
-	...(typeof e.foodRevenue === 'string' ? {foodRevenue: Number(e.foodRevenue)} : {})
+	alcoholRevenue: typeof e.alcoholRevenue === 'string' ? Number(e.alcoholRevenue) : e.alcoholRevenue,
+	budget: typeof e.budget === 'string' ? Number(e.budget) : e.budget,
+	foodRevenue: typeof e.foodRevenue === 'string' ? Number(e.foodRevenue) : e.foodRevenue
 });
 
 
-export async function getEvents({ status }) {
+type GetEventsQuery = {
+	status?: string;
+};
+
+export async function getEvents({ status }: GetEventsQuery = {}): Promise<Event[]> {
 	try {
-		const events = await sql`
+		const events = await sql<EventRaw[]>`
 			SELECT ${sql(eventColumns)}
 			FROM events
 			${status ? sql`WHERE status = ${status}` : sql``}
@@ -56,10 +85,10 @@ export async function getEvents({ status }) {
 	}
 }
 
-export async function getEvent(id) {
-	let event;
+export async function getEvent(id: string): Promise<Event> {
+	let event: Event | undefined;
 	try {
-		[event] = (await sql`
+		[event] = (await sql<EventRaw[]>`
 			SELECT ${sql(eventColumns)}
 			FROM events
 			WHERE id = ${id}
@@ -73,7 +102,21 @@ export async function getEvent(id) {
 	return event;
 }
 
-export async function createEvent(newEvent) {
+type CreateEventInput = {
+	id?: string;
+	date: Date;
+	name: string;
+	openingSales?: Date;
+	salesEnabled?: boolean;
+	maxCapacity?: number;
+	budget?: number;
+	alcoholRevenue?: number;
+	foodRevenue?: number;
+	status?: string;
+	meta?: Record<string, unknown>;
+};
+
+export async function createEvent(newEvent: CreateEventInput): Promise<Event> {
 	for(const u in newEvent) {
 		// Fields whitelist
 		if(![
@@ -108,7 +151,7 @@ export async function createEvent(newEvent) {
 	};
 
 	try {
-		const [createdEvent] = (await sql`
+		const [createdEvent] = (await sql<EventRaw[]>`
 			INSERT INTO events ${sql(event)}
 			RETURNING ${sql(eventColumns)}
 		`).map(convertNumericTypeToNumbers);
@@ -119,7 +162,21 @@ export async function createEvent(newEvent) {
 	}
 }
 
-export async function updateEvent(id, updates) {
+type UpdateEventInput = {
+	date?: Date;
+	name?: string;
+	openingSales?: Date;
+	salesEnabled?: boolean;
+	maxCapacity?: number;
+	alcoholRevenue?: number;
+	foodRevenue?: number;
+	status?: string;
+	budget?: number;
+	meta?: Record<string, unknown>;
+	updatedBy?: string;
+};
+
+export async function updateEvent(id: string, updates: UpdateEventInput): Promise<Event> {
 	for(const u in updates) {
 		// Update whitelist
 		if(![
@@ -139,9 +196,9 @@ export async function updateEvent(id, updates) {
 
 	if(Object.keys(updates).length === 1 && updates.updatedBy) throw new EventsServiceError('Invalid event data', 'INVALID');
 
-	let event;
+	let event: Event | undefined;
 	try {
-		[event] = (await sql`
+		[event] = (await sql<EventRaw[]>`
 			UPDATE events
 			SET ${sql(updates)}, updated = now()
 			WHERE id = ${id}
@@ -156,11 +213,33 @@ export async function updateEvent(id, updates) {
 	return event;
 }
 
+type EventProduct = {
+	id: string;
+	name: string;
+	description: string;
+	price: number;
+	status: string;
+	eventId: string;
+	admissionTier: string;
+	type: string;
+	meta: Record<string, unknown>;
+};
+
+type EventSettings = {
+	id: string;
+	name: string;
+	date: Date;
+	openingSales: Date | null;
+	salesEnabled: boolean;
+	meta: Record<string, unknown>;
+	products: EventProduct[];
+};
+
 // !!! THIS GETS EXPOSED PUBLICLY
-export async function getEventSettings(id) {
-	let event;
+export async function getEventSettings(id: string): Promise<EventSettings> {
+	let event: EventSettings | undefined;
 	try {
-		[event] = await sql`
+		[event] = await sql<EventSettings[]>`
 			SELECT
 				e.id,
 				e.name,
@@ -201,9 +280,28 @@ export async function getEventSettings(id) {
 	return event;
 }
 
-export async function getEventSummary(id) {
+type EventSummary = {
+	eventId: string;
+	totalGuests: number;
+	totalPaidGuests: number;
+	totalCompedGuests: number;
+	totalVipGuests: number;
+	guestsToday: number;
+	checkedIn: number;
+};
+
+type EventSummaryRaw = Omit<EventSummary, 'totalGuests' | 'totalPaidGuests' | 'totalCompedGuests' | 'totalVipGuests' | 'guestsToday' | 'checkedIn'> & {
+	totalGuests: string;
+	totalPaidGuests: string;
+	totalCompedGuests: string;
+	totalVipGuests: string;
+	guestsToday: string;
+	checkedIn: string;
+};
+
+export async function getEventSummary(id: string): Promise<EventSummary> {
 	try {
-		const [summary] = (await sql`
+		const [summary] = (await sql<EventSummaryRaw[]>`
 			SELECT
 				e.id as event_id,
 				count(g.id) FILTER (WHERE g.status <> 'archived') as total_guests,
@@ -236,9 +334,38 @@ export async function getEventSummary(id) {
 	}
 }
 
-export async function getEventExtendedStats(id) {
+type SalesTier = {
+	name: string;
+	quantity: number;
+	price: number;
+};
+
+type EventExtendedStats = {
+	eventId: string;
+	eventBudget: number;
+	eventMaxCapacity: number | null;
+	alcoholRevenue: number;
+	foodRevenue: number;
+	salesTiers: SalesTier[];
+	totalRevenue: number;
+	totalPromoRevenue: number;
+	revenueToday: number;
+	promoRevenueToday: number;
+};
+
+type EventExtendedStatsRaw = Omit<EventExtendedStats, 'eventBudget' | 'alcoholRevenue' | 'foodRevenue' | 'totalRevenue' | 'totalPromoRevenue' | 'revenueToday' | 'promoRevenueToday'> & {
+	eventBudget: string;
+	alcoholRevenue: string;
+	foodRevenue: string;
+	totalRevenue: string;
+	totalPromoRevenue: string;
+	revenueToday: string;
+	promoRevenueToday: string;
+};
+
+export async function getEventExtendedStats(id: string): Promise<EventExtendedStats> {
 	try {
-		const [extendedStats] = (await sql`
+		const [extendedStats] = (await sql<EventExtendedStatsRaw[]>`
 			WITH ProductAggregation AS (
 				SELECT
 					p.event_id,
@@ -325,9 +452,19 @@ export async function getEventExtendedStats(id) {
 	}
 }
 
-export async function getEventDailyTickets(id: string) {
+type DailyTicket = {
+	date: Date;
+	tickets: number;
+};
+
+type DailyTicketRaw = {
+	date: Date;
+	tickets: string;
+};
+
+export async function getEventDailyTickets(id: string): Promise<DailyTicket[]> {
 	try {
-		const chart = (await sql`
+		const chart = (await sql<DailyTicketRaw[]>`
 			SELECT
 				(o.created AT TIME ZONE 'UTC' AT TIME ZONE 'America/Los_Angeles')::DATE AS date,
 				SUM(oi.quantity) as tickets
@@ -351,7 +488,12 @@ export async function getEventDailyTickets(id: string) {
 	}
 }
 
-export async function getOpeningSales(id: string) {
+type OpeningSale = {
+	minuteCreated: string;
+	tickets: number;
+};
+
+export async function getOpeningSales(id: string): Promise<OpeningSale[]> {
 	try {
 		const chart = (await sql<{minuteCreated: string; tickets: string}[]>`
 			SELECT
@@ -381,7 +523,12 @@ export async function getOpeningSales(id: string) {
 	}
 }
 
-export async function getEventCheckins(id: string) {
+type EventCheckin = {
+	minuteCheckedIn: string;
+	checkins: number;
+};
+
+export async function getEventCheckins(id: string): Promise<EventCheckin[]> {
 	try {
 		const chart = (await sql<{minuteCheckedIn: string; checkins: string}[]>`
 			SELECT

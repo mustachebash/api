@@ -15,7 +15,7 @@ export type User = {
 	username: string;
 	displayName: string;
 	role: string;
-	subClaim: string;
+	subClaim: string | null;
 };
 
 class AuthServiceError extends Error {
@@ -38,7 +38,7 @@ type AccessToken = {
 	role: string;
 	name: string;
 };
-function generateAccessToken(user: User) {
+function generateAccessToken(user: User): string {
 	return jwt.sign({
 		exp: Math.floor(Date.now()/1000) + (60*20), // In seconds, 20m expiration
 		iss: 'mustachebash',
@@ -49,7 +49,7 @@ function generateAccessToken(user: User) {
 	config.jwt.secret);
 }
 
-export function validateAccessToken(accessToken: string) {
+export function validateAccessToken(accessToken: string): AccessToken {
 	const tokenPayload = jwt.verify(accessToken, config.jwt.secret, {issuer: 'mustachebash'});
 
 	if(
@@ -66,7 +66,7 @@ type RefreshToken = {
 	jti: string;
 	sub: string;
 };
-function generateRefreshToken(user: User, jti: string) {
+function generateRefreshToken(user: User, jti: string): string {
 	return jwt.sign({
 		exp: Math.floor(Date.now()/1000) + (60*60*24*30), // In seconds, 30d expiration
 		iss: 'mustachebash',
@@ -77,7 +77,7 @@ function generateRefreshToken(user: User, jti: string) {
 	config.jwt.secret);
 }
 
-function validateRefreshToken(refreshToken: string) {
+function validateRefreshToken(refreshToken: string): RefreshToken {
 	const tokenPayload = jwt.verify(refreshToken, config.jwt.secret, {issuer: 'mustachebash', audience: 'mustachebash-refresh'});
 
 	if(
@@ -91,7 +91,12 @@ function validateRefreshToken(refreshToken: string) {
 	return tokenPayload as RefreshToken;
 }
 
-export async function authenticateGoogleUser(token: string, {userAgent, ip}: {userAgent: string, ip: string}) {
+type AuthResult = {
+	accessToken: string;
+	refreshToken: string;
+};
+
+export async function authenticateGoogleUser(token: string, {userAgent, ip}: {userAgent: string, ip: string}): Promise<AuthResult> {
 	if(!token) throw new AuthServiceError('Missing token', 'UNAUTHORIZED');
 
 	let payload: TokenPayload | undefined, googleUserId: string | null;
@@ -192,7 +197,11 @@ export async function authenticateGoogleUser(token: string, {userAgent, ip}: {us
 	return {accessToken, refreshToken};
 }
 
-export async function refreshAccessToken(refreshToken: string, {userAgent, ip}: {userAgent: string, ip: string}) {
+type RefreshTokenData = {
+	userId: string;
+};
+
+export async function refreshAccessToken(refreshToken: string, {userAgent, ip}: {userAgent: string, ip: string}): Promise<string> {
 	let sub: string, jti: string;
 	try {
 		({ sub, jti } = validateRefreshToken(refreshToken));
@@ -200,7 +209,7 @@ export async function refreshAccessToken(refreshToken: string, {userAgent, ip}: 
 		throw new AuthServiceError('Invalid refresh token', 'UNAUTHORIZED');
 	}
 
-	let user;
+	let user: User | undefined;
 	try {
 		[user] = await sql<User[]>`
 			SELECT id, display_name, role, sub_claim
@@ -211,9 +220,9 @@ export async function refreshAccessToken(refreshToken: string, {userAgent, ip}: 
 		throw new AuthServiceError('Failed to query for user', 'DB_ERROR', e);
 	}
 
-	let refreshTokenData;
+	let refreshTokenData: RefreshTokenData | undefined;
 	try {
-		[refreshTokenData] = await sql`
+		[refreshTokenData] = await sql<RefreshTokenData[]>`
 			SELECT user_id
 			FROM refresh_tokens
 			WHERE id = ${jti}
@@ -240,7 +249,7 @@ export async function refreshAccessToken(refreshToken: string, {userAgent, ip}: 
 	return generateAccessToken(user);
 }
 
-export function checkScope(userRole: string, scopeRequired: string) {
+export function checkScope(userRole: string, scopeRequired: string): boolean {
 	const roles = [
 		'root',
 		'god',
@@ -252,13 +261,23 @@ export function checkScope(userRole: string, scopeRequired: string) {
 
 	const userLevel = roles.indexOf(userRole);
 
-	return ~userLevel && userLevel <= roles.indexOf(scopeRequired);
+	return Boolean(~userLevel && userLevel <= roles.indexOf(scopeRequired));
 }
 
-export async function getUsers() {
-	let users;
+type UserPublic = {
+	id: string;
+	username: string;
+	displayName: string;
+	role: string;
+	status: string;
+	created: Date;
+	updated: Date;
+};
+
+export async function getUsers(): Promise<UserPublic[]> {
+	let users: UserPublic[];
 	try {
-		users = await sql`
+		users = await sql<UserPublic[]>`
 			SELECT id, username, display_name, role, status, created, updated
 			FROM users
 		`;
@@ -269,10 +288,10 @@ export async function getUsers() {
 	return users;
 }
 
-export async function getUser(id: string) {
-	let user;
+export async function getUser(id: string): Promise<UserPublic> {
+	let user: UserPublic | undefined;
 	try {
-		[user] = await sql`
+		[user] = await sql<UserPublic[]>`
 			SELECT id, username, display_name, role, status, created, updated
 			FROM users
 			WHERE id = ${id}

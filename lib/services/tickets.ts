@@ -27,14 +27,38 @@ export class TicketsServiceError extends Error {
 // a revokable identifier, but are not rolling "live" tickets this year
 // ie, we aren't seeding a TOTP with it, and therefore it does not need to be a secret value.
 // This keeps the QR payload very short, and much quicker for scanning (both ease of reading and input time)
-function generateQRPayload(ticketSeed: string) {
+function generateQRPayload(ticketSeed: string): string {
 	return ticketSeed;
 }
 
-export async function getOrderTickets(orderId: string) {
-	let guests;
+type GuestForTicket = {
+	id: string;
+	admissionTier: string;
+	eventId: string;
+	eventName: string;
+	eventDate: Date;
+	ticketSeed: string;
+	status: string;
+	firstName: string;
+	lastName: string;
+};
+
+type Ticket = {
+	id: string;
+	admissionTier: string;
+	eventId: string;
+	eventName: string;
+	eventDate: Date;
+	status: string;
+	firstName: string;
+	lastName: string;
+	qrPayload: string;
+};
+
+export async function getOrderTickets(orderId: string): Promise<Ticket[]> {
+	let guests: GuestForTicket[];
 	try {
-		guests = await sql`
+		guests = await sql<GuestForTicket[]>`
 			SELECT
 				g.id,
 				g.admission_tier,
@@ -55,7 +79,7 @@ export async function getOrderTickets(orderId: string) {
 	}
 
 	// Inject the QR Codes
-	const tickets = [];
+	const tickets: Ticket[] = [];
 	for (const guest of guests) {
 		const qrPayload = generateQRPayload(guest.ticketSeed);
 
@@ -75,10 +99,44 @@ export async function getOrderTickets(orderId: string) {
 	return tickets;
 }
 
-export async function getCustomerActiveTicketsByOrderId(orderId: string) {
-	let rows;
+type CustomerTicketRow = {
+	orderCreated: Date;
+	customerId: string;
+	guestId: string;
+	guestStatus: string;
+	guestCheckInTime: Date | null;
+	guestAdmissionTier: string;
+	guestTicketSeed: string;
+	guestOrderId: string;
+	eventId: string;
+	eventName: string;
+	eventDate: Date;
+	upgradeProductId: string | null;
+	upgradePrice: number | null;
+	upgradeName: string | null;
+};
+
+type CustomerActiveTicket = {
+	id: string;
+	customerId: string;
+	orderId: string;
+	orderCreated: Date;
+	admissionTier: string;
+	status: string;
+	checkInTime: Date | null;
+	eventId: string;
+	eventName: string;
+	eventDate: Date;
+	upgradeProductId: string | null;
+	upgradePrice: number | null;
+	upgradeName: string | null;
+	qrPayload: string;
+};
+
+export async function getCustomerActiveTicketsByOrderId(orderId: string): Promise<CustomerActiveTicket[]> {
+	let rows: CustomerTicketRow[];
 	try {
-		rows = await sql`
+		rows = await sql<CustomerTicketRow[]>`
 			SELECT DISTINCT
 				o.created AT TIME ZONE 'UTC' AT TIME ZONE 'America/Los_Angeles' as order_created,
 				o.customer_id,
@@ -120,7 +178,7 @@ export async function getCustomerActiveTicketsByOrderId(orderId: string) {
 		`;
 
 		// Inject the QR Codes
-		const tickets = [];
+		const tickets: CustomerActiveTicket[] = [];
 		for (const row of rows) {
 			const qrPayload = generateQRPayload(row.guestTicketSeed);
 
@@ -151,10 +209,30 @@ export async function getCustomerActiveTicketsByOrderId(orderId: string) {
 	}
 }
 
-export async function getCustomerActiveAccommodationsByOrderId(orderId: string) {
-	let rows;
+type AccommodationRow = {
+	orderCreated: Date;
+	orderId: string;
+	customerId: string;
+	productName: string;
+	eventId: string;
+	eventName: string;
+	eventDate: Date;
+};
+
+type CustomerAccommodation = {
+	customerId: string;
+	orderId: string;
+	orderCreated: Date;
+	productName: string;
+	eventId: string;
+	eventName: string;
+	eventDate: Date;
+};
+
+export async function getCustomerActiveAccommodationsByOrderId(orderId: string): Promise<CustomerAccommodation[]> {
+	let rows: AccommodationRow[];
 	try {
-		rows = await sql`
+		rows = await sql<AccommodationRow[]>`
 			SELECT DISTINCT
 				o.created AT TIME ZONE 'UTC' AT TIME ZONE 'America/Los_Angeles' as order_created,
 				o.id as order_id,
@@ -181,7 +259,7 @@ export async function getCustomerActiveAccommodationsByOrderId(orderId: string) 
 		`;
 
 		// Inject the QR Codes
-		const accomodations = [];
+		const accomodations: CustomerAccommodation[] = [];
 		for (const row of rows) {
 			accomodations.push({
 				customerId: row.customerId,
@@ -218,30 +296,64 @@ export async function getCustomerActiveAccommodationsByOrderId(orderId: string) 
  *   are merely records of "guest" transfers
  * - The transferee will be upserted into customers, which means the original customer will need to input first/last/email
  */
+type TransferInput = {
+	transferee: {
+		email: string;
+		firstName: string;
+		lastName: string;
+	};
+	guestIds: string[];
+};
+
+type TransferOrder = {
+	id: string;
+	parentOrderId: string;
+	status: string;
+	amount: number;
+	customerId: string;
+};
+
+type TransferResult = {
+	transferee: Customer;
+	order: TransferOrder;
+};
+
+type Customer = {
+	id: string;
+	firstName: string;
+	lastName: string;
+	email: string;
+};
+
+type OrderForTransfer = {
+	id: string;
+	status: string;
+};
+
+type GuestForTransfer = {
+	id: string;
+	status: string;
+	eventId: string;
+	admissionTier: string;
+};
+
 export async function transferTickets(
 	orderId: string,
 	{
 		transferee,
 		guestIds
-	}: {
-		transferee: {
-			email: string;
-			firstName: string;
-			lastName: string;
-		};
-		guestIds: string[];
-	}
-) {
+	}: TransferInput
+): Promise<TransferResult> {
 	if(!transferee) throw new TicketsServiceError('No transferee specified', 'INVALID');
 	if(!guestIds?.length) throw new TicketsServiceError('No tickets specified', 'INVALID');
 
-	let order;
+	let order: OrderForTransfer | undefined;
 	try {
-		[order] = (await sql`
+		[order] = await sql<OrderForTransfer[]>`
 			SELECT *
 			FROM orders
 			WHERE id = ${orderId}
-		`);
+		`;
 	} catch(e) {
 		throw new TicketsServiceError('Could not query orders', 'UNKNOWN', e);
 	}
@@ -249,9 +361,9 @@ export async function transferTickets(
 	if(!order) throw new TicketsServiceError('Order not found', 'NOT_FOUND');
 	if(order.status === 'canceled') throw new TicketsServiceError('Cannot transfer this order', 'NOT_PERMITTED');
 
-	let originalGuests;
+	let originalGuests: GuestForTransfer[];
 	try {
-		originalGuests = await sql`
+		originalGuests = await sql<GuestForTransfer[]>`
 			SELECT *
 			FROM guests
 			WHERE order_id = ${orderId}
@@ -266,9 +378,9 @@ export async function transferTickets(
 
 	// Find or insert a customer record for the transferee
 	const normalizedEmail = transferee.email.toLowerCase().trim();
-	let dbCustomer;
+	let dbCustomer: Customer | undefined;
 	try {
-		[dbCustomer] = await sql`
+		[dbCustomer] = await sql<Customer[]>`
 			SELECT *
 			FROM customers
 			WHERE email = ${normalizedEmail}
@@ -282,7 +394,7 @@ export async function transferTickets(
 				email: normalizedEmail
 			};
 
-			[dbCustomer] = await sql`
+			[dbCustomer] = await sql<Customer[]>`
 				INSERT INTO customers ${sql(newCustomer)}
 				RETURNING *
 			`;
@@ -294,7 +406,7 @@ export async function transferTickets(
 	// Create a new order for 0 dollars, create guests and tickets
 	// Package the order object
 	const transfereeOrderId = uuidV4(),
-		transfereeOrder = {
+		transfereeOrder: TransferOrder = {
 			id: transfereeOrderId,
 			parentOrderId: order.id,
 			status: 'complete',
@@ -357,11 +469,26 @@ export async function transferTickets(
 	};
 }
 
-export async function inspectTicket(ticketToken: string) {
-	let guest;
+type GuestInspection = {
+	id: string;
+	firstName: string;
+	lastName: string;
+	status: string;
+	orderId: string;
+	createdReason: string;
+	admissionTier: string;
+	checkInTime: Date | null;
+	eventId: string;
+	eventName: string;
+	eventDate: Date;
+	eventStatus: string;
+};
+
+export async function inspectTicket(ticketToken: string): Promise<GuestInspection> {
+	let guest: GuestInspection | undefined;
 	// For now, this is happening directly with ticket seeds
 	try {
-		[guest] = await sql`
+		[guest] = await sql<GuestInspection[]>`
 			SELECT
 				g.id,
 				g.first_name,
@@ -389,11 +516,25 @@ export async function inspectTicket(ticketToken: string) {
 	return guest;
 }
 
-export async function checkInWithTicket(ticketToken: string, scannedBy: string) {
-	let guest;
+type GuestCheckIn = {
+	id: string;
+	firstName: string;
+	lastName: string;
+	status: string;
+	orderId: string;
+	admissionTier: string;
+	checkInTime: Date | null;
+	eventId: string;
+	eventName: string;
+	eventDate: Date;
+	eventStatus: string;
+};
+
+export async function checkInWithTicket(ticketToken: string, scannedBy: string): Promise<GuestCheckIn> {
+	let guest: GuestCheckIn | undefined;
 	// For now, this is happening directly with ticket seeds
 	try {
-		[guest] = await sql`
+		[guest] = await sql<GuestCheckIn[]>`
 			SELECT
 				g.id,
 				g.first_name,

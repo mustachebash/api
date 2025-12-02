@@ -39,10 +39,13 @@ const productColumns = [
 	'meta'
 ];
 
-const convertPriceToNumber = (p: Record<string, unknown>) => ({...p, ...(typeof p.price === 'string' ? {price: Number(p.price)} : {})});
+type ProductRaw = Omit<Product, 'price'> & {
+	price: string | number;
+};
+
+const convertPriceToNumber = (p: ProductRaw): Product => ({...p, ...(typeof p.price === 'string' ? {price: Number(p.price)} : {})} as Product);
 
 type ProductType = 'ticket' | 'upgrade' | 'bundle-ticket' | 'accomodation';
-type AdmissionTier = 'general' | 'vip' | 'sponsor' | 'stachepass';
 export type Product = {
 	id: string;
 	price: number;
@@ -54,17 +57,34 @@ export type Product = {
 	admissionTier: string;
 	targetProductId: string;
 	promo: boolean;
+	status: string;
+	created: Date;
+	updated: Date;
+	updatedBy: string | null;
 	meta: Record<string, unknown>;
 };
 
-export async function createProduct({ price, name, description, type, maxQuantity, eventId, admissionTier, targetProductId, promo, meta }: Omit<Product, 'id'>) {
+type CreateProductInput = {
+	price: number;
+	name: string;
+	description: string;
+	type: ProductType;
+	maxQuantity?: number | null;
+	eventId?: string;
+	admissionTier?: string;
+	targetProductId?: string;
+	promo?: boolean;
+	meta?: Record<string, unknown>;
+};
+
+export async function createProduct({ price, name, description, type, maxQuantity, eventId, admissionTier, targetProductId, promo, meta }: CreateProductInput): Promise<Product> {
 	if(!name || !description || !type) throw new ProductsServiceError('Missing product data', 'INVALID');
 	if(typeof price !== 'number') throw new ProductsServiceError('Price must be a number', 'INVALID');
 	if(type === 'ticket' && (!eventId || !admissionTier)) throw new ProductsServiceError('No event set for ticket', 'INVALID');
 	if(type === 'upgrade' && (!targetProductId || !admissionTier)) throw new ProductsServiceError('No product target set for ticket upgrade', 'INVALID');
 	if(type === 'bundle-ticket' && (!eventId || !targetProductId || !admissionTier)) throw new ProductsServiceError('No product target set for bundle ticket', 'INVALID');
 
-	const product: Product = {
+	const product: Partial<Product> = {
 		id: uuidV4(),
 		price,
 		name,
@@ -102,7 +122,7 @@ export async function createProduct({ price, name, description, type, maxQuantit
 	}
 
 	try {
-		const [createdProduct] = (await sql`
+		const [createdProduct] = (await sql<ProductRaw[]>`
 			INSERT INTO products ${sql(product)}
 			RETURNING ${sql(productColumns)}
 		`).map(convertPriceToNumber);
@@ -113,9 +133,14 @@ export async function createProduct({ price, name, description, type, maxQuantit
 	}
 }
 
-export async function getProducts({eventId, type}: {eventId?: string; type?: string} = {}) {
+type GetProductsQuery = {
+	eventId?: string;
+	type?: string;
+};
+
+export async function getProducts({eventId, type}: GetProductsQuery = {}): Promise<Product[]> {
 	try {
-		const products = await sql`
+		const products = await sql<ProductRaw[]>`
 			SELECT ${sql(productColumns)}
 			FROM products
 			WHERE true
@@ -129,10 +154,10 @@ export async function getProducts({eventId, type}: {eventId?: string; type?: str
 	}
 }
 
-export async function getProduct(id: string) {
-	let product;
+export async function getProduct(id: string): Promise<Product> {
+	let product: Product | undefined;
 	try {
-		[product] = (await sql`
+		[product] = (await sql<ProductRaw[]>`
 			SELECT ${sql(productColumns)}
 			FROM products
 			WHERE id = ${id}
@@ -146,7 +171,17 @@ export async function getProduct(id: string) {
 	return product;
 }
 
-export async function updateProduct(id: string, updates: Record<string, unknown>) {
+type UpdateProductInput = {
+	name?: string;
+	price?: number;
+	description?: string;
+	status?: string;
+	maxQuantity?: number | null;
+	meta?: Record<string, unknown>;
+	updatedBy?: string;
+};
+
+export async function updateProduct(id: string, updates: UpdateProductInput): Promise<Product> {
 	for(const u in updates) {
 		// Update whitelist
 		if(![
@@ -162,9 +197,9 @@ export async function updateProduct(id: string, updates: Record<string, unknown>
 
 	if(Object.keys(updates).length === 1 && updates.updatedBy) throw new ProductsServiceError('Invalid product data', 'INVALID');
 
-	let product;
+	let product: Product | undefined;
 	try {
-		[product] = (await sql`
+		[product] = (await sql<ProductRaw[]>`
 			UPDATE products
 			SET ${sql(updates)}, updated = now()
 			WHERE id = ${id}

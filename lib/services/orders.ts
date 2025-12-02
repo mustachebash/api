@@ -47,6 +47,37 @@ const orderColumns = [
 	'meta'
 ];
 
+export type Order = {
+	id: string;
+	amount: number;
+	created: Date;
+	customerId: string;
+	promoId: string | null;
+	parentOrderId: string | null;
+	status: string;
+	meta: Record<string, unknown>;
+};
+
+type OrderWithItems = Order & {
+	items: OrderItem[];
+};
+
+type OrderWithCustomer = Order & {
+	items: OrderItem[];
+	customerEmail?: string;
+	customerFirstName?: string;
+	customerLastName?: string;
+};
+
+type OrderItem = {
+	productId: string;
+	quantity: number;
+};
+
+type OrderRaw = Omit<Order, 'amount'> & {
+	amount: string | number;
+};
+
 const aggregateOrderItems = sql`
 	ARRAY_AGG(
 		JSON_BUILD_OBJECT(
@@ -56,11 +87,20 @@ const aggregateOrderItems = sql`
 	) as items
 `;
 
-const convertAmountToNumber = o => ({...o, ...(typeof o.amount === 'string' ? {amount: Number(o.amount)} : {})});
+const convertAmountToNumber = (o: OrderRaw): Order => ({...o, ...(typeof o.amount === 'string' ? {amount: Number(o.amount)} : {})} as Order);
 
-export async function getOrders({ eventId, productId, status, limit, orderBy = 'created', sort = 'desc' }) {
+type GetOrdersQuery = {
+	eventId?: string;
+	productId?: string;
+	status?: string;
+	limit?: number | string;
+	orderBy?: string;
+	sort?: string;
+};
+
+export async function getOrders({ eventId, productId, status, limit, orderBy = 'created', sort = 'desc' }: GetOrdersQuery = {}): Promise<OrderWithCustomer[]> {
 	try {
-		let orders;
+		let orders: (OrderRaw & { items: OrderItem[]; customerEmail?: string; customerFirstName?: string; customerLastName?: string })[];
 		if(eventId) {
 			orders = await sql`
 				WITH FilteredOrders AS (
@@ -129,11 +169,62 @@ export async function getOrders({ eventId, productId, status, limit, orderBy = '
 		}
 
 		// https://github.com/porsager/postgres#numbers-bigint-numeric
-		return orders.map(convertAmountToNumber);
+		return orders.map(o => ({...convertAmountToNumber(o), items: o.items, customerEmail: o.customerEmail, customerFirstName: o.customerFirstName, customerLastName: o.customerLastName}));
 	} catch(e) {
 		throw new OrdersServiceError('Could not query orders', 'UNKNOWN', e);
 	}
 }
+
+type ProductWithTotalSold = Product & {
+	totalSold: number;
+};
+
+type ProductWithTotalSoldRaw = Omit<ProductWithTotalSold, 'totalSold' | 'price'> & {
+	totalSold: string;
+	price: string | number;
+};
+
+type Customer = {
+	id: string;
+	firstName: string;
+	lastName: string;
+	email: string;
+};
+
+type TargetGuest = {
+	id: string;
+	admissionTier: string;
+	status: string;
+};
+
+type OrderDetail = {
+	productId: string;
+	quantity: number;
+	product: ProductWithTotalSold;
+	bundledProduct: Product | undefined;
+};
+
+type ProductToArchive = {
+	id: string;
+	eventId: string;
+	nextTierProductId: string | null;
+};
+
+type Transaction = {
+	id: string;
+	amount: number | null;
+	processor: string;
+	processorTransactionId: string;
+	processorCreatedAt: Date;
+	type: string;
+	orderId: string;
+};
+
+type CreateOrderResult = {
+	order: Order;
+	transaction: Transaction;
+	customer: Customer;
+};
 
 type OrderInput = {
 	paymentMethodNonce: string;
@@ -144,20 +235,21 @@ type OrderInput = {
 	}[];
 
 	customer: {
-		firstName: string;
-		lastName: string;
-		email: string;
+		firstName?: string;
+		lastName?: string;
+		email?: string;
 	};
 
 	promoId?: string;
 
 	targetGuestId?: string;
 };
-export async function createOrder({ paymentMethodNonce, cart = [], customer = {}, promoId, targetGuestId }: OrderInput) {
+
+export async function createOrder({ paymentMethodNonce, cart = [], customer = {}, promoId, targetGuestId }: OrderInput): Promise<CreateOrderResult> {
 	// First do some validation
 	if (!cart.length || !paymentMethodNonce || !customer.firstName || !customer.lastName || !customer.email) throw new OrdersServiceError('Invalid payment parameters', 'INVALID');
 
-	const products = (await sql<(Product & {totalSold: string})[]>`
+	const products = (await sql<ProductWithTotalSoldRaw[]>`
 		SELECT p.*, COALESCE(SUM(oi.quantity), 0) as total_sold
 		FROM products as p
 		LEFT JOIN order_items as oi
@@ -169,10 +261,10 @@ export async function createOrder({ paymentMethodNonce, cart = [], customer = {}
 		...p,
 		...(typeof p.price === 'string' ? {price: Number(p.price)} : {}),
 		...(typeof p.totalSold === 'string' ? {totalSold: Number(p.totalSold)} : {})
-	}));
+	})) as ProductWithTotalSold[];
 
 	// Fetch all matching bundled products - for now it's just tickets
-	const bundledProducts = (await sql<Product[]>`
+	const bundledProducts = (await sql<(Product & { price: string | number })[]>`
 		SELECT p.*
 		FROM products as p
 		WHERE p.type = 'bundle-ticket'
@@ -183,9 +275,15 @@ export async function createOrder({ paymentMethodNonce, cart = [], customer = {}
 		...(typeof p.price === 'string' ? {price: Number(p.price)} : {})
 	}));
 
-	let promo: Promo;
+type PromoRaw = Omit<Promo, 'price' | 'percentDiscount' | 'flatDiscount'> & {
+	price: string | number | undefined;
+	percentDiscount: string | number | undefined;
+	flatDiscount: string | number | undefined;
+};
+
+	let promo: Promo | undefined;
 	if(promoId) {
-		[promo] = (await sql<Promo[]>`
+		[promo] = (await sql<PromoRaw[]>`
 			SELECT *
 			FROM promos
 			WHERE id = ${promoId}
@@ -195,13 +293,14 @@ export async function createOrder({ paymentMethodNonce, cart = [], customer = {}
 			...(typeof p.price === 'string' ? {price: Number(p.price)} : {}),
 			...(typeof p.percentDiscount === 'string' ? {percentDiscount: Number(p.percentDiscount)} : {}),
 			...(typeof p.flatDiscount === 'string' ? {flatDiscount: Number(p.flatDiscount)} : {})
-		}));
+		})) as Promo[];
 
-		const [promoUses] = (await sql<{promoUses: number}[]>`
+		const [promoUsesResult] = await sql<{promoUses: string}[]>`
 			SELECT count(id) as promo_uses
 			FROM orders
 			WHERE promo_id = ${promoId}
-		`).map(pu => (pu.promoUses));
+		`;
+		const promoUses = Number(promoUsesResult.promoUses);
 
 		if(!promo) throw new OrdersServiceError('Invalid promo code', 'INVALID');
 		if(typeof promo.maxUses === 'number' && promo.maxUses <= promoUses) throw new OrdersServiceError('Promo code no longer available', 'GONE');
@@ -209,11 +308,11 @@ export async function createOrder({ paymentMethodNonce, cart = [], customer = {}
 
 	// targetGuestId is actually what the user sees as a "ticket", so the 1:1 restriction remains valid per upgrade product, however
 	// the API should maybe allow for an array of objects mapping guestIds to upgrade productIds so a user may upgrade multiple tickets at once
-	let targetGuest;
+	let targetGuest: TargetGuest | undefined;
 	if(targetGuestId) {
 		if(products.length > 1 || products[0].type !== 'upgrade') throw new OrdersServiceError('Missing/incorrect Upgrade Product', 'INVALID');
 
-		[targetGuest] = await sql`
+		[targetGuest] = await sql<TargetGuest[]>`
 			SELECT *
 			FROM guests
 			WHERE id = ${targetGuestId}
@@ -227,9 +326,9 @@ export async function createOrder({ paymentMethodNonce, cart = [], customer = {}
 	// if(!products.length || products.length !== cart.length) throw new OrdersServiceError('Empty/Invalid items in cart', 'INVALID');
 	if(!products.length || products.length !== cart.length) throw new OrdersServiceError('Unavailable items in cart', 'GONE');
 
-	const productsToArchive = [];
-	const orderDetails = cart.map(i => {
-		const product = products.find(p => p.id === i.productId),
+	const productsToArchive: ProductToArchive[] = [];
+	const orderDetails: OrderDetail[] = cart.map(i => {
+		const product = products.find(p => p.id === i.productId) as ProductWithTotalSold,
 			bundledProduct = bundledProducts.find(p => p.targetProductId === i.productId),
 			remaining = typeof product.maxQuantity === 'number' && product.maxQuantity > 0 ? product.maxQuantity - product.totalSold : null;
 
@@ -238,6 +337,7 @@ export async function createOrder({ paymentMethodNonce, cart = [], customer = {}
 			promo &&
 			promo.productId === i.productId &&
 			promo.type === 'single-use' &&
+			promo.productQuantity &&
 			promo.productQuantity < i.quantity
 		) throw new OrdersServiceError('Promo quantity exceeded', 'INVALID');
 
@@ -261,7 +361,7 @@ export async function createOrder({ paymentMethodNonce, cart = [], customer = {}
 				productsToArchive.push({
 					id: product.id,
 					eventId: product.eventId,
-					nextTierProductId: product.meta.nextTierProductId ?? null
+					nextTierProductId: (product.meta as { nextTierProductId?: string })?.nextTierProductId ?? null
 				});
 			}
 		}
@@ -339,8 +439,8 @@ export async function createOrder({ paymentMethodNonce, cart = [], customer = {}
 
 	// Find or insert a customer record immediately before attempting charge
 	const normalizedEmail = customer.email.toLowerCase().trim();
-	let dbCustomer;
-	[dbCustomer] = await sql`
+	let dbCustomer: Customer | undefined;
+	[dbCustomer] = await sql<Customer[]>`
 		SELECT *
 		FROM customers
 		WHERE email = ${normalizedEmail}
@@ -354,7 +454,7 @@ export async function createOrder({ paymentMethodNonce, cart = [], customer = {}
 			email: normalizedEmail
 		};
 
-		[dbCustomer] = await sql`
+		[dbCustomer] = await sql<Customer[]>`
 			INSERT INTO customers ${sql(newCustomer)}
 			RETURNING *
 		`;
@@ -388,14 +488,16 @@ export async function createOrder({ paymentMethodNonce, cart = [], customer = {}
 		btAmount = Number(braintreeTransaction.amount);
 
 	// Package the order, order_item, and transaction objects
-	const order = {
+	const order: Omit<Order, 'created' | 'meta'> = {
 		id: orderId,
 		customerId: dbCustomer.id,
 		status: 'complete',
-		amount
+		amount,
+		promoId: promoId ?? null,
+		parentOrderId: null
 	};
 
-	const orderItems = cart.map(i => ({
+	const orderItems: { productId: string; quantity: number; orderId: string }[] = cart.map(i => ({
 		productId: i.productId,
 		quantity: i.quantity,
 		orderId
@@ -412,7 +514,7 @@ export async function createOrder({ paymentMethodNonce, cart = [], customer = {}
 		}
 	});
 
-	const transaction = {
+	const transaction: Transaction = {
 		id: uuidV4(),
 		amount: !Number.isNaN(btAmount) ? btAmount : null,
 		processor: 'braintree',
@@ -506,16 +608,23 @@ export async function createOrder({ paymentMethodNonce, cart = [], customer = {}
 	});
 
 	return {
-		order,
+		order: { ...order, created: new Date(), meta: {} } as Order,
 		transaction,
 		customer: dbCustomer
 	};
 }
 
-export async function generateOrderToken(id) {
-	let order;
+type OrderTokenPayload = {
+	iss: string;
+	aud: string;
+	iat: number;
+	sub: string;
+};
+
+export async function generateOrderToken(id: string): Promise<string> {
+	let order: Order | undefined;
 	try {
-		[order] = (await sql`
+		[order] = (await sql<OrderRaw[]>`
 			SELECT ${sql(orderColumns)}
 			FROM orders
 			WHERE id = ${id}
@@ -529,20 +638,20 @@ export async function generateOrderToken(id) {
 	return jwt.sign({
 		iss: 'mustachebash',
 		aud: 'tickets',
-		iat: Math.round(order.created / 1000),
+		iat: Math.round(order.created.getTime() / 1000),
 		sub: id
 	},
 	orderSecret);
 }
 
-export function validateOrderToken(token) {
-	return jwt.verify(token, orderSecret, {issuer: 'mustachebash'});
+export function validateOrderToken(token: string): OrderTokenPayload {
+	return jwt.verify(token, orderSecret, {issuer: 'mustachebash'}) as OrderTokenPayload;
 }
 
-export async function getOrder(id) {
-	let order;
+export async function getOrder(id: string): Promise<OrderWithItems> {
+	let order: OrderWithItems | undefined;
 	try {
-		[order] = (await sql`
+		[order] = (await sql<(OrderRaw & { items: OrderItem[] })[]>`
 			SELECT
 				${sql(orderColumns.map(c => `o.${c}`))},
 				${aggregateOrderItems}
@@ -551,7 +660,7 @@ export async function getOrder(id) {
 				ON o.id = i.order_id
 			WHERE id = ${id}
 			GROUP BY o.id
-		`).map(convertAmountToNumber);
+		`).map(o => ({...convertAmountToNumber(o), items: o.items}));
 	} catch(e) {
 		throw new OrdersServiceError('Could not query orders', 'UNKNOWN', e);
 	}
@@ -561,10 +670,10 @@ export async function getOrder(id) {
 	return order;
 }
 
-export async function getOrderTransfers(id) {
-	let transfers;
+export async function getOrderTransfers(id: string): Promise<Order[]> {
+	let transfers: Order[];
 	try {
-		transfers = (await sql`
+		transfers = (await sql<OrderRaw[]>`
 			SELECT
 				${sql(orderColumns.map(c => `o.${c}`))}
 			FROM orders as o
@@ -579,10 +688,30 @@ export async function getOrderTransfers(id) {
 }
 
 // Full order refund
-export async function refundOrder(id) {
-	let order;
+type OrderForRefund = {
+	orderStatus: string;
+	transactionId: string;
+	transactionType: string;
+	processorTransactionId: string;
+	processor: string;
+	parentTransactionId: string | null;
+};
+
+type NewTransaction = {
+	id: string;
+	orderId: string;
+	processor: string;
+	parentTransactionId: string;
+	type?: string;
+	processorTransactionId?: string;
+	processorCreatedAt?: Date;
+	amount?: number;
+};
+
+export async function refundOrder(id: string): Promise<void> {
+	let order: OrderForRefund | undefined;
 	try {
-		[order] = await sql`
+		[order] = await sql<OrderForRefund[]>`
 			SELECT
 				o.status AS order_status,
 				t.id AS transaction_id,
@@ -603,7 +732,7 @@ export async function refundOrder(id) {
 	if (!order) throw new OrdersServiceError('Order not found', 'NOT_FOUND');
 	if (order.orderStatus !== 'complete') throw new OrdersServiceError(`Cannot refund order with status: ${order.orderStatus}`, 'REFUND_NOT_ALLOWED');
 
-	const newTransaction = {
+	const newTransaction: NewTransaction = {
 		id: uuidV4(),
 		orderId: id,
 		processor: order.processor,
