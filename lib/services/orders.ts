@@ -56,11 +56,62 @@ const aggregateOrderItems = sql`
 	) as items
 `;
 
-const convertAmountToNumber = o => ({...o, ...(typeof o.amount === 'string' ? {amount: Number(o.amount)} : {})});
+type OrderStatus = 'complete' | 'canceled' | 'transferred';
 
-export async function getOrders({ eventId, productId, status, limit, orderBy = 'created', sort = 'desc' }) {
+type OrderItem = {
+	productId: string;
+	quantity: number;
+};
+
+export type Order = {
+	id: string;
+	amount: number;
+	created: Date;
+	customerId: string;
+	promoId: string | null;
+	parentOrderId: string | null;
+	status: OrderStatus;
+	meta: Record<string, unknown>;
+	items?: OrderItem[];
+	customerEmail?: string;
+	customerFirstName?: string;
+	customerLastName?: string;
+};
+
+type OrderQueryParams = {
+	eventId?: string;
+	productId?: string;
+	status?: OrderStatus;
+	limit?: number | string;
+	orderBy?: string;
+	sort?: 'asc' | 'desc';
+};
+
+type OrderRefundRow = {
+	orderStatus: OrderStatus;
+	transactionId: string;
+	transactionType: string;
+	processorTransactionId: string;
+	processor: string;
+	parentTransactionId: string | null;
+};
+
+type NewTransactionInput = {
+	id: string;
+	orderId: string;
+	processor: string;
+	parentTransactionId: string | null;
+	type?: 'refund' | 'void';
+	processorTransactionId?: string;
+	processorCreatedAt?: Date;
+	amount?: number;
+};
+
+const convertAmountToNumber = <T extends { amount?: number | string }>(o: T): T & { amount?: number } => ({...o, ...(typeof o.amount === 'string' ? {amount: Number(o.amount)} : {})});
+
+export async function getOrders({ eventId, productId, status, limit, orderBy = 'created', sort = 'desc' }: OrderQueryParams): Promise<Order[]> {
 	try {
-		let orders;
+		let orders: Order[];
 		if(eventId) {
 			orders = await sql`
 				WITH FilteredOrders AS (
@@ -512,10 +563,10 @@ export async function createOrder({ paymentMethodNonce, cart = [], customer = {}
 	};
 }
 
-export async function generateOrderToken(id) {
-	let order;
+export async function generateOrderToken(id: string): Promise<string> {
+	let order: Order | undefined;
 	try {
-		[order] = (await sql`
+		[order] = (await sql<Order[]>`
 			SELECT ${sql(orderColumns)}
 			FROM orders
 			WHERE id = ${id}
@@ -529,20 +580,20 @@ export async function generateOrderToken(id) {
 	return jwt.sign({
 		iss: 'mustachebash',
 		aud: 'tickets',
-		iat: Math.round(order.created / 1000),
+		iat: Math.round(order.created.getTime() / 1000),
 		sub: id
 	},
 	orderSecret);
 }
 
-export function validateOrderToken(token) {
+export function validateOrderToken(token: string): string | jwt.JwtPayload {
 	return jwt.verify(token, orderSecret, {issuer: 'mustachebash'});
 }
 
-export async function getOrder(id) {
-	let order;
+export async function getOrder(id: string): Promise<Order> {
+	let order: Order | undefined;
 	try {
-		[order] = (await sql`
+		[order] = (await sql<Order[]>`
 			SELECT
 				${sql(orderColumns.map(c => `o.${c}`))},
 				${aggregateOrderItems}
@@ -561,10 +612,10 @@ export async function getOrder(id) {
 	return order;
 }
 
-export async function getOrderTransfers(id) {
-	let transfers;
+export async function getOrderTransfers(id: string): Promise<Order[]> {
+	let transfers: Order[];
 	try {
-		transfers = (await sql`
+		transfers = (await sql<Order[]>`
 			SELECT
 				${sql(orderColumns.map(c => `o.${c}`))}
 			FROM orders as o
@@ -579,10 +630,10 @@ export async function getOrderTransfers(id) {
 }
 
 // Full order refund
-export async function refundOrder(id) {
-	let order;
+export async function refundOrder(id: string): Promise<void> {
+	let order: OrderRefundRow | undefined;
 	try {
-		[order] = await sql`
+		[order] = await sql<OrderRefundRow[]>`
 			SELECT
 				o.status AS order_status,
 				t.id AS transaction_id,
@@ -603,7 +654,7 @@ export async function refundOrder(id) {
 	if (!order) throw new OrdersServiceError('Order not found', 'NOT_FOUND');
 	if (order.orderStatus !== 'complete') throw new OrdersServiceError(`Cannot refund order with status: ${order.orderStatus}`, 'REFUND_NOT_ALLOWED');
 
-	const newTransaction = {
+	const newTransaction: NewTransactionInput = {
 		id: uuidV4(),
 		orderId: id,
 		processor: order.processor,

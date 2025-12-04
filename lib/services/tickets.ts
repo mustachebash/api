@@ -23,6 +23,138 @@ export class TicketsServiceError extends Error {
 	}
 }
 
+type GuestStatus = 'active' | 'checked_in' | 'archived';
+type EventStatus = 'active' | 'archived';
+
+type OrderTicketRow = {
+	id: string;
+	admissionTier: string;
+	eventId: string;
+	eventName: string;
+	eventDate: Date;
+	ticketSeed: string;
+	status: GuestStatus;
+	firstName: string;
+	lastName: string;
+};
+
+type Ticket = {
+	id: string;
+	admissionTier: string;
+	eventId: string;
+	eventName: string;
+	eventDate: Date;
+	status: GuestStatus;
+	firstName: string;
+	lastName: string;
+	qrPayload: string;
+};
+
+type CustomerTicketRow = {
+	orderCreated: Date;
+	customerId: string;
+	guestId: string;
+	guestStatus: GuestStatus;
+	guestCheckInTime: Date | null;
+	guestAdmissionTier: string;
+	guestTicketSeed: string;
+	guestOrderId: string;
+	eventId: string;
+	eventName: string;
+	eventDate: Date;
+	upgradeProductId: string | null;
+	upgradePrice: number | null;
+	upgradeName: string | null;
+};
+
+type CustomerTicket = {
+	id: string;
+	customerId: string;
+	orderId: string;
+	orderCreated: Date;
+	admissionTier: string;
+	status: GuestStatus;
+	checkInTime: Date | null;
+	eventId: string;
+	eventName: string;
+	eventDate: Date;
+	upgradeProductId: string | null;
+	upgradePrice: number | null;
+	upgradeName: string | null;
+	qrPayload: string;
+};
+
+type AccommodationRow = {
+	orderCreated: Date;
+	orderId: string;
+	customerId: string;
+	productName: string;
+	eventId: string;
+	eventName: string;
+	eventDate: Date;
+};
+
+type Accommodation = {
+	customerId: string;
+	orderId: string;
+	orderCreated: Date;
+	productName: string;
+	eventId: string;
+	eventName: string;
+	eventDate: Date;
+};
+
+type Transferee = {
+	email: string;
+	firstName: string;
+	lastName: string;
+};
+
+type TransferResult = {
+	transferee: {
+		id: string;
+		firstName: string;
+		lastName: string;
+		email: string;
+	};
+	order: {
+		id: string;
+		parentOrderId: string;
+		status: string;
+		amount: number;
+		customerId: string;
+	};
+};
+
+type InspectedGuest = {
+	id: string;
+	firstName: string;
+	lastName: string;
+	status: GuestStatus;
+	orderId: string;
+	createdReason: string;
+	admissionTier: string;
+	checkInTime: Date | null;
+	eventId: string;
+	eventName: string;
+	eventDate: Date;
+	eventStatus: EventStatus;
+};
+
+type OrderRow = {
+	id: string;
+	customerId: string;
+	status: string;
+	parentOrderId: string | null;
+};
+
+type GuestRow = {
+	id: string;
+	status: GuestStatus;
+	eventId: string;
+	admissionTier: string;
+};
+
 // For now, ticket "seed" is fine to be used as plaintext since we can use it as
 // a revokable identifier, but are not rolling "live" tickets this year
 // ie, we aren't seeding a TOTP with it, and therefore it does not need to be a secret value.
@@ -31,10 +163,10 @@ function generateQRPayload(ticketSeed: string) {
 	return ticketSeed;
 }
 
-export async function getOrderTickets(orderId: string) {
-	let guests;
+export async function getOrderTickets(orderId: string): Promise<Ticket[]> {
+	let guests: OrderTicketRow[];
 	try {
-		guests = await sql`
+		guests = await sql<OrderTicketRow[]>`
 			SELECT
 				g.id,
 				g.admission_tier,
@@ -55,7 +187,7 @@ export async function getOrderTickets(orderId: string) {
 	}
 
 	// Inject the QR Codes
-	const tickets = [];
+	const tickets: Ticket[] = [];
 	for (const guest of guests) {
 		const qrPayload = generateQRPayload(guest.ticketSeed);
 
@@ -75,10 +207,10 @@ export async function getOrderTickets(orderId: string) {
 	return tickets;
 }
 
-export async function getCustomerActiveTicketsByOrderId(orderId: string) {
-	let rows;
+export async function getCustomerActiveTicketsByOrderId(orderId: string): Promise<CustomerTicket[]> {
+	let rows: CustomerTicketRow[];
 	try {
-		rows = await sql`
+		rows = await sql<CustomerTicketRow[]>`
 			SELECT DISTINCT
 				o.created AT TIME ZONE 'UTC' AT TIME ZONE 'America/Los_Angeles' as order_created,
 				o.customer_id,
@@ -120,7 +252,7 @@ export async function getCustomerActiveTicketsByOrderId(orderId: string) {
 		`;
 
 		// Inject the QR Codes
-		const tickets = [];
+		const tickets: CustomerTicket[] = [];
 		for (const row of rows) {
 			const qrPayload = generateQRPayload(row.guestTicketSeed);
 
@@ -151,10 +283,10 @@ export async function getCustomerActiveTicketsByOrderId(orderId: string) {
 	}
 }
 
-export async function getCustomerActiveAccommodationsByOrderId(orderId: string) {
-	let rows;
+export async function getCustomerActiveAccommodationsByOrderId(orderId: string): Promise<Accommodation[]> {
+	let rows: AccommodationRow[];
 	try {
-		rows = await sql`
+		rows = await sql<AccommodationRow[]>`
 			SELECT DISTINCT
 				o.created AT TIME ZONE 'UTC' AT TIME ZONE 'America/Los_Angeles' as order_created,
 				o.id as order_id,
@@ -181,7 +313,7 @@ export async function getCustomerActiveAccommodationsByOrderId(orderId: string) 
 		`;
 
 		// Inject the QR Codes
-		const accomodations = [];
+		const accomodations: Accommodation[] = [];
 		for (const row of rows) {
 			accomodations.push({
 				customerId: row.customerId,
@@ -224,24 +356,20 @@ export async function transferTickets(
 		transferee,
 		guestIds
 	}: {
-		transferee: {
-			email: string;
-			firstName: string;
-			lastName: string;
-		};
+		transferee: Transferee;
 		guestIds: string[];
 	}
-) {
+): Promise<TransferResult> {
 	if(!transferee) throw new TicketsServiceError('No transferee specified', 'INVALID');
 	if(!guestIds?.length) throw new TicketsServiceError('No tickets specified', 'INVALID');
 
-	let order;
+	let order: OrderRow | undefined;
 	try {
-		[order] = (await sql`
+		[order] = await sql<OrderRow[]>`
 			SELECT *
 			FROM orders
 			WHERE id = ${orderId}
-		`);
+		`;
 	} catch(e) {
 		throw new TicketsServiceError('Could not query orders', 'UNKNOWN', e);
 	}
@@ -249,9 +377,9 @@ export async function transferTickets(
 	if(!order) throw new TicketsServiceError('Order not found', 'NOT_FOUND');
 	if(order.status === 'canceled') throw new TicketsServiceError('Cannot transfer this order', 'NOT_PERMITTED');
 
-	let originalGuests;
+	let originalGuests: GuestRow[];
 	try {
-		originalGuests = await sql`
+		originalGuests = await sql<GuestRow[]>`
 			SELECT *
 			FROM guests
 			WHERE order_id = ${orderId}
@@ -357,11 +485,11 @@ export async function transferTickets(
 	};
 }
 
-export async function inspectTicket(ticketToken: string) {
-	let guest;
+export async function inspectTicket(ticketToken: string): Promise<InspectedGuest> {
+	let guest: InspectedGuest | undefined;
 	// For now, this is happening directly with ticket seeds
 	try {
-		[guest] = await sql`
+		[guest] = await sql<InspectedGuest[]>`
 			SELECT
 				g.id,
 				g.first_name,
@@ -389,11 +517,11 @@ export async function inspectTicket(ticketToken: string) {
 	return guest;
 }
 
-export async function checkInWithTicket(ticketToken: string, scannedBy: string) {
-	let guest;
+export async function checkInWithTicket(ticketToken: string, scannedBy: string): Promise<InspectedGuest> {
+	let guest: InspectedGuest | undefined;
 	// For now, this is happening directly with ticket seeds
 	try {
-		[guest] = await sql`
+		[guest] = await sql<InspectedGuest[]>`
 			SELECT
 				g.id,
 				g.first_name,

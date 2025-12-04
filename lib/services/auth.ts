@@ -10,12 +10,28 @@ import * as config from '../config.js';
 
 const googleAuthClient = new OAuth2Client();
 
+type UserRole = 'root' | 'god' | 'admin' | 'write' | 'read' | 'doorman';
+
 export type User = {
 	id: string;
 	username: string;
 	displayName: string;
-	role: string;
-	subClaim: string;
+	role: UserRole;
+	subClaim: string | null;
+};
+
+type UserRow = {
+	id: string;
+	username: string;
+	displayName: string;
+	role: UserRole;
+	status: string;
+	created: Date;
+	updated: Date;
+};
+
+type RefreshTokenRow = {
+	userId: string;
 };
 
 class AuthServiceError extends Error {
@@ -211,9 +227,9 @@ export async function refreshAccessToken(refreshToken: string, {userAgent, ip}: 
 		throw new AuthServiceError('Failed to query for user', 'DB_ERROR', e);
 	}
 
-	let refreshTokenData;
+	let refreshTokenData: RefreshTokenRow | undefined;
 	try {
-		[refreshTokenData] = await sql`
+		[refreshTokenData] = await sql<RefreshTokenRow[]>`
 			SELECT user_id
 			FROM refresh_tokens
 			WHERE id = ${jti}
@@ -255,10 +271,10 @@ export function checkScope(userRole: string, scopeRequired: string) {
 	return ~userLevel && userLevel <= roles.indexOf(scopeRequired);
 }
 
-export async function getUsers() {
-	let users;
+export async function getUsers(): Promise<UserRow[]> {
+	let users: UserRow[];
 	try {
-		users = await sql`
+		users = await sql<UserRow[]>`
 			SELECT id, username, display_name, role, status, created, updated
 			FROM users
 		`;
@@ -269,10 +285,10 @@ export async function getUsers() {
 	return users;
 }
 
-export async function getUser(id: string) {
-	let user;
+export async function getUser(id: string): Promise<UserRow> {
+	let user: UserRow | undefined;
 	try {
-		[user] = await sql`
+		[user] = await sql<UserRow[]>`
 			SELECT id, username, display_name, role, status, created, updated
 			FROM users
 			WHERE id = ${id}
