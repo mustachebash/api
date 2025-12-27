@@ -1,6 +1,7 @@
 import Router from '@koa/router';
 import { authorizeUser, requiresPermission } from '../middleware/auth.js';
 import { getEvents, getEvent, createEvent, updateEvent, getEventSummary, getOpeningSales, getEventExtendedStats, getEventDailyTickets, getEventCheckins } from '../services/events.js';
+import { isRecordLike } from '../utils/type-guards.js';
 
 const eventsRouter = new Router({
 	prefix: '/events'
@@ -19,6 +20,8 @@ eventsRouter
 		}
 	})
 	.post('/', requiresPermission('admin'), async ctx => {
+		if(!isRecordLike(ctx.request.body)) throw ctx.throw(400);
+
 		try {
 			const event = await createEvent(ctx.request.body);
 
@@ -43,6 +46,8 @@ eventsRouter
 		}
 	})
 	.patch('/:id', requiresPermission('admin'), async ctx => {
+		if(!isRecordLike(ctx.request.body)) throw ctx.throw(400);
+
 		try {
 			const event = await updateEvent(ctx.params.id, {...ctx.request.body, updatedBy: ctx.state.user.id});
 

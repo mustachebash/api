@@ -36,6 +36,28 @@ class OrdersServiceError extends Error {
 	}
 }
 
+export type Order = {
+	id: string;
+	amount: number;
+	created: Date;
+	customerId: string;
+	promoId: string | null;
+	parentOrderId: string | null;
+	status: 'complete' | 'canceled' | 'transferred';
+	meta: Record<string, unknown>;
+};
+
+type OrderRow = Omit<Order, 'amount'> & { amount: string };
+
+type OrderWithItems = Order & {
+	items: Array<{ productId: string; quantity: number }>;
+	customerEmail?: string;
+	customerFirstName?: string;
+	customerLastName?: string;
+};
+
+type OrderRowWithItems = Omit<OrderWithItems, 'amount'> & { amount: string };
+
 const orderColumns = [
 	'id',
 	'amount',
@@ -56,9 +78,12 @@ const aggregateOrderItems = sql`
 	) as items
 `;
 
-const convertAmountToNumber = o => ({...o, ...(typeof o.amount === 'string' ? {amount: Number(o.amount)} : {})});
+const convertAmountToNumber = <T extends OrderRow | OrderRowWithItems>(o: T): T extends OrderRowWithItems ? OrderWithItems : Order => ({
+	...o,
+	amount: Number(o.amount)
+} as T extends OrderRowWithItems ? OrderWithItems : Order);
 
-export async function getOrders({ eventId, productId, status, limit, orderBy = 'created', sort = 'desc' }) {
+export async function getOrders({ eventId, productId, status, limit, orderBy = 'created', sort = 'desc' }: { eventId?: string; productId?: string; status?: string; limit?: number; orderBy?: string; sort?: 'asc' | 'desc' } = {}): Promise<OrderWithItems[]> {
 	try {
 		let orders;
 		if(eventId) {
@@ -512,10 +537,10 @@ export async function createOrder({ paymentMethodNonce, cart = [], customer = {}
 	};
 }
 
-export async function generateOrderToken(id) {
-	let order;
+export async function generateOrderToken(id: string): Promise<string> {
+	let order: Order | undefined;
 	try {
-		[order] = (await sql`
+		[order] = (await sql<OrderRow[]>`
 			SELECT ${sql(orderColumns)}
 			FROM orders
 			WHERE id = ${id}
@@ -535,14 +560,14 @@ export async function generateOrderToken(id) {
 	orderSecret);
 }
 
-export function validateOrderToken(token) {
+export function validateOrderToken(token: string) {
 	return jwt.verify(token, orderSecret, {issuer: 'mustachebash'});
 }
 
-export async function getOrder(id) {
-	let order;
+export async function getOrder(id: string): Promise<OrderWithItems> {
+	let order: OrderWithItems | undefined;
 	try {
-		[order] = (await sql`
+		[order] = (await sql<OrderRowWithItems[]>`
 			SELECT
 				${sql(orderColumns.map(c => `o.${c}`))},
 				${aggregateOrderItems}
@@ -561,10 +586,10 @@ export async function getOrder(id) {
 	return order;
 }
 
-export async function getOrderTransfers(id) {
-	let transfers;
+export async function getOrderTransfers(id: string): Promise<Order[]> {
+	let transfers: Order[];
 	try {
-		transfers = (await sql`
+		transfers = (await sql<OrderRow[]>`
 			SELECT
 				${sql(orderColumns.map(c => `o.${c}`))}
 			FROM orders as o
@@ -579,7 +604,7 @@ export async function getOrderTransfers(id) {
 }
 
 // Full order refund
-export async function refundOrder(id) {
+export async function refundOrder(id: string): Promise<void> {
 	let order;
 	try {
 		[order] = await sql`

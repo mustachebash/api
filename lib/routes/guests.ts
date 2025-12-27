@@ -7,6 +7,7 @@ import {
 	updateGuest,
 	archiveGuest
 } from '../services/guests.js';
+import { isRecordLike } from '../utils/type-guards.js';
 
 const guestsRouter = new Router({
 	prefix: '/guests'
@@ -25,6 +26,8 @@ guestsRouter
 		}
 	})
 	.post('/', requiresPermission('write'), async ctx => {
+		if(!isRecordLike(ctx.request.body)) throw ctx.throw(400);
+
 		try {
 			const guest = await createGuest({...ctx.request.body, createdBy: ctx.state.user.id, createdReason: 'comp'});
 
@@ -51,6 +54,8 @@ guestsRouter
 		}
 	})
 	.patch('/:id', async ctx => {
+		if(!isRecordLike(ctx.request.body)) throw ctx.throw(400);
+
 		try {
 			const guest = await updateGuest(ctx.params.id, {updatedBy: ctx.state.user.id, ...ctx.request.body});
 

@@ -1,6 +1,7 @@
 import Router from '@koa/router';
 import { authorizeUser } from '../middleware/auth.js';
 import { createProduct, getProducts, getProduct, updateProduct } from '../services/products.js';
+import { isRecordLike } from '../utils/type-guards.js';
 
 const productsRouter = new Router({
 	prefix: '/products'
@@ -19,6 +20,8 @@ productsRouter
 		}
 	})
 	.post('/', async ctx => {
+		if(!isRecordLike(ctx.request.body)) throw ctx.throw(400);
+
 		try {
 			const product = await createProduct(ctx.request.body);
 
@@ -45,6 +48,8 @@ productsRouter
 		}
 	})
 	.patch('/:id', async ctx => {
+		if(!isRecordLike(ctx.request.body)) throw ctx.throw(400);
+
 		try {
 			const product = await updateProduct(ctx.params.id, {...ctx.request.body, updatedBy: ctx.state.user.id});
 

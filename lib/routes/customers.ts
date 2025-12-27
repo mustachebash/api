@@ -2,6 +2,7 @@ import Router from '@koa/router';
 import { AppContext } from '../index.js';
 import { authorizeUser, requiresPermission } from '../middleware/auth.js';
 import { createCustomer, getCustomers, getCustomer, updateCustomer } from '../services/customers.js';
+import { isRecordLike } from '../utils/type-guards.js';
 
 const customersRouter = new Router<AppContext['state'], AppContext>({
 	prefix: '/customers'
@@ -18,6 +19,8 @@ customersRouter
 		}
 	})
 	.post('/', authorizeUser, requiresPermission('admin'), async ctx => {
+		if(!isRecordLike(ctx.request.body)) throw ctx.throw(400);
+
 		try {
 			const customer = await createCustomer({...ctx.request.body, createdBy: ctx.state.user.id});
 
