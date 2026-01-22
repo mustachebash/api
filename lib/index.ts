@@ -52,12 +52,12 @@ app.proxyIpHeader = 'X-Real-IP';
 app.use(async (ctx, next) => {
 	try {
 		await next();
-	} catch(e) {
-		if(e instanceof HttpError) {
-			ctx.status = e.status
+	} catch (e) {
+		if (e instanceof HttpError) {
+			ctx.status = e.status;
 
 			ctx.body = e.expose ? e.message : 'Internal Server Error';
-		} else if(e instanceof Error) {
+		} else if (e instanceof Error) {
 			ctx.status = 500;
 			ctx.body = 'Internal Server Error';
 		}
@@ -100,18 +100,12 @@ app.use(
 			const origin = ctx.get('origin');
 
 			// Accept dev origins only in non-production environments
-			if(
-				corsEnv !== 'production'
-				&& (
-					/^https:\/\/(.+\.)?localhost(:\d*)?$/.test(origin) ||
-					/^https:\/\/.+\.local\.mrstache\.io(:\d*)?$/.test(origin)
-				)
-			) {
+			if (corsEnv !== 'production' && (/^https:\/\/(.+\.)?localhost(:\d*)?$/.test(origin) || /^https:\/\/.+\.local\.mrstache\.io(:\d*)?$/.test(origin))) {
 				return origin;
 			}
 
 			// Mustache bash root and single subdomain, HTTPS only
-			if(/^https:\/\/(\w+\.)?mustachebash\.com$/.test(origin)) {
+			if (/^https:\/\/(\w+\.)?mustachebash\.com$/.test(origin)) {
 				return origin;
 			}
 
@@ -121,35 +115,20 @@ app.use(
 			const origin = ctx.get('origin');
 
 			// Accept dev origins only in non-production environments
-			if(corsEnv !== 'production' && /^https:\/\/(.+\.)?localhost(:\d*)?$/.test(origin)) {
+			if (corsEnv !== 'production' && /^https:\/\/(.+\.)?localhost(:\d*)?$/.test(origin)) {
 				return true;
 			}
 
 			// Mustache bash root and single subdomain, HTTPS only
-			if(/^https:\/\/(\w+\.)?mustachebash\.com$/.test(origin)) {
+			if (/^https:\/\/(\w+\.)?mustachebash\.com$/.test(origin)) {
 				return true;
 			}
 
 			return false;
 		},
 		allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
-		allowHeaders: [
-			'Accept',
-			'Authorization',
-			'Cache-Control',
-			'Content-Type',
-			'DNT',
-			'If-Modified-Since',
-			'Keep-Alive',
-			'Origin',
-			'User-Agent',
-			'X-Requested-With'
-		],
-		exposeHeaders: [
-			'Location',
-			'Retry-After',
-			'Warning'
-		]
+		allowHeaders: ['Accept', 'Authorization', 'Cache-Control', 'Content-Type', 'DNT', 'If-Modified-Since', 'Keep-Alive', 'Origin', 'User-Agent', 'X-Requested-With'],
+		exposeHeaders: ['Location', 'Retry-After', 'Warning']
 	})
 );
 
@@ -159,14 +138,14 @@ app.use(
  * a child logger for each request
  */
 app.use(async (ctx, next) => {
-	ctx.state.log = log.child({requestId: ctx.requestId});
+	ctx.state.log = log.child({ requestId: ctx.requestId });
 
 	await next();
 
 	const { request, response } = ctx,
 		message = `${request.method} ${request.originalUrl} ${response.status}`;
 
-	ctx.state.log.info({request, response, ctx}, message);
+	ctx.state.log.info({ request, response, ctx }, message);
 });
 
 /**
@@ -179,7 +158,7 @@ app.use(async (ctx, next) => {
 	try {
 		await next();
 	} finally {
-		const [ seconds, nanoseconds ] = process.hrtime(start);
+		const [seconds, nanoseconds] = process.hrtime(start);
 
 		ctx.state.responseTime = seconds * 1e3 + nanoseconds * 1e-6;
 	}
@@ -209,10 +188,10 @@ app.on('error', (err, ctx) => {
 
 	response.status = err.status || response.status;
 
-	if(err.status < 500) {
-		ctx.state.log.warn({request, response, ctx, err}, `${request.method} ${request.originalUrl} ${response.status} - ${err.message}`);
+	if (err.status < 500) {
+		ctx.state.log.warn({ request, response, ctx, err }, `${request.method} ${request.originalUrl} ${response.status} - ${err.message}`);
 	} else {
-		ctx.state.log.error({request, response, ctx, err}, err.message);
+		ctx.state.log.error({ request, response, ctx, err }, err.message);
 	}
 });
 

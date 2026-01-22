@@ -5,25 +5,25 @@ import tseslint from 'typescript-eslint';
 
 export default [
 	{
-		ignores: ['dist/**'],
+		ignores: ['dist/**']
 	},
 	{
 		languageOptions: {
 			ecmaVersion: 'latest',
 			sourceType: 'module',
 			globals: {
-				...globals.node,
-			},
-		},
+				...globals.node
+			}
+		}
 	},
 	js.configs.recommended,
 	...tseslint.configs.recommended,
 	{
 		plugins: {
-			prettier,
+			prettier
 		},
 		rules: {
-			'prettier/prettier': 'warn',
-		},
-	},
+			'prettier/prettier': 'warn'
+		}
+	}
 ];

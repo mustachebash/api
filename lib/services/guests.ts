@@ -4,7 +4,7 @@
  * @type {Object}
  */
 import crypto from 'crypto';
-import { toDataURL as generateQRDataURI }  from 'qrcode';
+import { toDataURL as generateQRDataURI } from 'qrcode';
 import jwt from 'jsonwebtoken';
 import { v4 as uuidV4 } from 'uuid';
 import { sql } from '../utils/db.js';
@@ -41,22 +41,7 @@ export type Guest = {
 	meta: Record<string, unknown>;
 };
 
-const guestColumns = [
-	'id',
-	'first_name',
-	'last_name',
-	'admission_tier',
-	'created',
-	'updated',
-	'updated_by',
-	'created_by',
-	'created_reason',
-	'status',
-	'check_in_time',
-	'order_id',
-	'event_id',
-	'meta'
-];
+const guestColumns = ['id', 'first_name', 'last_name', 'admission_tier', 'created', 'updated', 'updated_by', 'created_by', 'created_reason', 'status', 'check_in_time', 'order_id', 'event_id', 'meta'];
 
 type GuestInput = {
 	firstName: string;
@@ -70,7 +55,7 @@ type GuestInput = {
 };
 
 export async function createGuest({ firstName, lastName, createdReason, orderId = null, createdBy = null, eventId, admissionTier, meta }: GuestInput): Promise<Guest> {
-	if(!firstName || !lastName || !eventId || !admissionTier || !createdReason || (orderId === null && createdReason === 'purchase')) throw new GuestsServiceError('Missing guest data', 'INVALID');
+	if (!firstName || !lastName || !eventId || !admissionTier || !createdReason || (orderId === null && createdReason === 'purchase')) throw new GuestsServiceError('Missing guest data', 'INVALID');
 
 	const guest = {
 		id: uuidV4(),
@@ -94,7 +79,7 @@ export async function createGuest({ firstName, lastName, createdReason, orderId 
 		`;
 
 		return createdGuest;
-	} catch(e) {
+	} catch (e) {
 		throw new GuestsServiceError('Could not create product', 'UNKNOWN', e);
 	}
 }
@@ -118,11 +103,11 @@ export async function getGuests({ limit, eventId, admissionTier, createdReason, 
 			${admissionTier ? sql`AND admission_tier = ${admissionTier}` : sql``}
 			${createdReason ? sql`AND created_reason = ${createdReason}` : sql``}
 			ORDER BY ${sql(orderBy)} ${sort === 'desc' ? sql`desc` : sql`asc`}
-			${(limit && Number(limit)) ? sql`LIMIT ${limit}` : sql``}
+			${limit && Number(limit) ? sql`LIMIT ${limit}` : sql``}
 		`;
 
 		return guests;
-	} catch(e) {
+	} catch (e) {
 		throw new GuestsServiceError('Could not query guests', 'UNKNOWN', e);
 	}
 }
@@ -135,34 +120,34 @@ export async function getGuest(id: string): Promise<Guest> {
 			FROM guests
 			WHERE id = ${id}
 		`;
-	} catch(e) {
+	} catch (e) {
 		throw new GuestsServiceError('Could not query guest', 'UNKNOWN', e);
 	}
 
-	if(!guest) throw new GuestsServiceError('Guest not found', 'NOT_FOUND');
+	if (!guest) throw new GuestsServiceError('Guest not found', 'NOT_FOUND');
 
 	return guest;
 }
 
 export async function updateGuest(id: string, updates: Record<string, unknown>): Promise<Guest> {
-	for(const u in updates) {
+	for (const u in updates) {
 		// Update whitelist
-		if(!['status', 'firstName', 'lastName', 'updatedBy', 'meta', 'admissionTier'].includes(u)) throw new GuestsServiceError('Invalid guest data', 'INVALID');
+		if (!['status', 'firstName', 'lastName', 'updatedBy', 'meta', 'admissionTier'].includes(u)) throw new GuestsServiceError('Invalid guest data', 'INVALID');
 	}
 
-	if(Object.keys(updates).length === 1 && updates.updatedBy) throw new GuestsServiceError('Invalid guest data', 'INVALID');
-	if(updates.status === 'archived') throw new GuestsServiceError('Cannot directly update guest status to `archived`', 'INVALID');
+	if (Object.keys(updates).length === 1 && updates.updatedBy) throw new GuestsServiceError('Invalid guest data', 'INVALID');
+	if (updates.status === 'archived') throw new GuestsServiceError('Cannot directly update guest status to `archived`', 'INVALID');
 
 	// Checkin logic
-	if(updates.status) {
-		if(updates.status === 'checked_in') {
+	if (updates.status) {
+		if (updates.status === 'checked_in') {
 			updates.checkInTime = sql`now()`;
 		} else {
 			updates.checkInTime = null;
 		}
 	}
 
-	if(Object.keys(updates).length === 1 && updates.updatedBy) throw new GuestsServiceError('Invalid product data', 'INVALID');
+	if (Object.keys(updates).length === 1 && updates.updatedBy) throw new GuestsServiceError('Invalid product data', 'INVALID');
 
 	// Prevent accidental downgrading of a guest below their purchased tier
 	// TODO: this also inadvertantly prevents from upgrading guests that were created by transfers
@@ -180,17 +165,14 @@ export async function updateGuest(id: string, updates: Record<string, unknown>):
 				WHERE g.id = ${id}
 				AND p.id IS NOT NULL
 			`;
-		} catch(e) {
+		} catch (e) {
 			throw new GuestsServiceError('Could not query guest', 'UNKNOWN', e);
 		}
 
-		if(!minimumAdmissionTier) throw new GuestsServiceError('Guest not found', 'NOT_FOUND');
+		if (!minimumAdmissionTier) throw new GuestsServiceError('Guest not found', 'NOT_FOUND');
 
 		// TODO: make this a tiered access list similar to user roles so we can support multiple levels in the future
-		if(
-			minimumAdmissionTier.admissionTier === 'vip' &&
-			updates.admissionTier === 'general'
-		) {
+		if (minimumAdmissionTier.admissionTier === 'vip' && updates.admissionTier === 'general') {
 			throw new GuestsServiceError('Cannot downgrade VIP guest to general admission', 'INVALID');
 		}
 	}
@@ -203,11 +185,11 @@ export async function updateGuest(id: string, updates: Record<string, unknown>):
 			WHERE id = ${id}
 			RETURNING ${sql(guestColumns)}
 		`;
-	} catch(e) {
+	} catch (e) {
 		throw new GuestsServiceError('Could not update guest', 'UNKNOWN', e);
 	}
 
-	if(!updatedGuest) throw new GuestsServiceError('guest not found', 'NOT_FOUND');
+	if (!updatedGuest) throw new GuestsServiceError('guest not found', 'NOT_FOUND');
 
 	return updatedGuest;
 }
@@ -221,11 +203,11 @@ export async function archiveGuest(id: string, updatedBy: string): Promise<Guest
 			WHERE id = ${id}
 			RETURNING ${sql(guestColumns)}
 		`;
-	} catch(e) {
+	} catch (e) {
 		throw new GuestsServiceError('Could not archive guest', 'UNKNOWN', e);
 	}
 
-	if(!guest) throw new GuestsServiceError('Guest not found', 'NOT_FOUND');
+	if (!guest) throw new GuestsServiceError('Guest not found', 'NOT_FOUND');
 
 	return guest;
 }

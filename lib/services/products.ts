@@ -21,25 +21,9 @@ class ProductsServiceError extends Error {
 	}
 }
 
-const productColumns = [
-	'id',
-	'status',
-	'type',
-	'name',
-	'description',
-	'admission_tier',
-	'price',
-	'event_id',
-	'target_product_id',
-	'promo',
-	'max_quantity',
-	'created',
-	'updated',
-	'updated_by',
-	'meta'
-];
+const productColumns = ['id', 'status', 'type', 'name', 'description', 'admission_tier', 'price', 'event_id', 'target_product_id', 'promo', 'max_quantity', 'created', 'updated', 'updated_by', 'meta'];
 
-const convertPriceToNumber = (p: ProductRow): Product => ({...p, price: Number(p.price)});
+const convertPriceToNumber = (p: ProductRow): Product => ({ ...p, price: Number(p.price) });
 
 type ProductType = 'ticket' | 'upgrade' | 'bundle-ticket' | 'accomodation';
 export type Product = {
@@ -63,11 +47,11 @@ export type Product = {
 type ProductRow = Omit<Product, 'price'> & { price: string };
 
 export async function createProduct({ price, name, description, type, maxQuantity, eventId, admissionTier, targetProductId, promo, meta }: Omit<Product, 'id'>) {
-	if(!name || !description || !type) throw new ProductsServiceError('Missing product data', 'INVALID');
-	if(typeof price !== 'number') throw new ProductsServiceError('Price must be a number', 'INVALID');
-	if(type === 'ticket' && (!eventId || !admissionTier)) throw new ProductsServiceError('No event set for ticket', 'INVALID');
-	if(type === 'upgrade' && (!targetProductId || !admissionTier)) throw new ProductsServiceError('No product target set for ticket upgrade', 'INVALID');
-	if(type === 'bundle-ticket' && (!eventId || !targetProductId || !admissionTier)) throw new ProductsServiceError('No product target set for bundle ticket', 'INVALID');
+	if (!name || !description || !type) throw new ProductsServiceError('Missing product data', 'INVALID');
+	if (typeof price !== 'number') throw new ProductsServiceError('Price must be a number', 'INVALID');
+	if (type === 'ticket' && (!eventId || !admissionTier)) throw new ProductsServiceError('No event set for ticket', 'INVALID');
+	if (type === 'upgrade' && (!targetProductId || !admissionTier)) throw new ProductsServiceError('No product target set for ticket upgrade', 'INVALID');
+	if (type === 'bundle-ticket' && (!eventId || !targetProductId || !admissionTier)) throw new ProductsServiceError('No product target set for bundle ticket', 'INVALID');
 
 	const product: Product = {
 		id: uuidV4(),
@@ -81,44 +65,46 @@ export async function createProduct({ price, name, description, type, maxQuantit
 		}
 	};
 
-	if(type === 'ticket') {
+	if (type === 'ticket') {
 		product.eventId = eventId;
 		product.admissionTier = admissionTier;
 		product.promo = Boolean(promo);
 	}
 
-	if(type === 'bundle-ticket') {
+	if (type === 'bundle-ticket') {
 		product.eventId = eventId;
 		product.targetProductId = targetProductId;
 		product.admissionTier = admissionTier;
 		product.promo = Boolean(promo);
 	}
 
-	if(type === 'upgrade') {
+	if (type === 'upgrade') {
 		product.targetProductId = targetProductId;
 		product.admissionTier = admissionTier;
 		product.promo = Boolean(promo);
 	}
 
-	if(type === 'accomodation') {
+	if (type === 'accomodation') {
 		product.eventId = eventId;
 		product.admissionTier = admissionTier;
 		product.promo = Boolean(promo);
 	}
 
 	try {
-		const [createdProduct] = (await sql<ProductRow[]>`
+		const [createdProduct] = (
+			await sql<ProductRow[]>`
 			INSERT INTO products ${sql(product)}
 			RETURNING ${sql(productColumns)}
-		`).map(convertPriceToNumber);
+		`
+		).map(convertPriceToNumber);
 
 		return createdProduct;
-	} catch(e) {
+	} catch (e) {
 		throw new ProductsServiceError('Could not create product', 'UNKNOWN', e);
 	}
 }
 
-export async function getProducts({eventId, type}: {eventId?: string; type?: string} = {}) {
+export async function getProducts({ eventId, type }: { eventId?: string; type?: string } = {}) {
 	try {
 		const products = await sql<ProductRow[]>`
 			SELECT ${sql(productColumns)}
@@ -129,7 +115,7 @@ export async function getProducts({eventId, type}: {eventId?: string; type?: str
 		`;
 
 		return products.map(convertPriceToNumber);
-	} catch(e) {
+	} catch (e) {
 		throw new ProductsServiceError('Could not query products', 'UNKNOWN', e);
 	}
 }
@@ -137,12 +123,14 @@ export async function getProducts({eventId, type}: {eventId?: string; type?: str
 export async function getProduct(id: string) {
 	let product;
 	try {
-		[product] = (await sql<ProductRow[]>`
+		[product] = (
+			await sql<ProductRow[]>`
 			SELECT ${sql(productColumns)}
 			FROM products
 			WHERE id = ${id}
-		`).map(convertPriceToNumber);
-	} catch(e) {
+		`
+		).map(convertPriceToNumber);
+	} catch (e) {
 		throw new ProductsServiceError('Could not query products', 'UNKNOWN', e);
 	}
 
@@ -152,34 +140,28 @@ export async function getProduct(id: string) {
 }
 
 export async function updateProduct(id: string, updates: Record<string, unknown>) {
-	for(const u in updates) {
+	for (const u in updates) {
 		// Update whitelist
-		if(![
-			'name',
-			'price',
-			'description',
-			'status',
-			'maxQuantity',
-			'meta',
-			'updatedBy'
-		].includes(u)) throw new ProductsServiceError('Invalid product data', 'INVALID');
+		if (!['name', 'price', 'description', 'status', 'maxQuantity', 'meta', 'updatedBy'].includes(u)) throw new ProductsServiceError('Invalid product data', 'INVALID');
 	}
 
-	if(Object.keys(updates).length === 1 && updates.updatedBy) throw new ProductsServiceError('Invalid product data', 'INVALID');
+	if (Object.keys(updates).length === 1 && updates.updatedBy) throw new ProductsServiceError('Invalid product data', 'INVALID');
 
 	let product;
 	try {
-		[product] = (await sql<ProductRow[]>`
+		[product] = (
+			await sql<ProductRow[]>`
 			UPDATE products
 			SET ${sql(updates)}, updated = now()
 			WHERE id = ${id}
 			RETURNING ${sql(productColumns)}
-		`).map(convertPriceToNumber);
-	} catch(e) {
+		`
+		).map(convertPriceToNumber);
+	} catch (e) {
 		throw new ProductsServiceError('Could not update product', 'UNKNOWN', e);
 	}
 
-	if(!product) throw new ProductsServiceError('product not found', 'NOT_FOUND');
+	if (!product) throw new ProductsServiceError('product not found', 'NOT_FOUND');
 
 	return product;
 }

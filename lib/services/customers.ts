@@ -32,16 +32,7 @@ export type Customer = {
 	meta: Record<string, unknown>;
 };
 
-const customerColumns = [
-	'id',
-	'email',
-	'first_name',
-	'last_name',
-	'created',
-	'updated',
-	'updated_by',
-	'meta'
-];
+const customerColumns = ['id', 'email', 'first_name', 'last_name', 'created', 'updated', 'updated_by', 'meta'];
 
 type CustomerInput = Record<string, unknown> & {
 	firstName?: string;
@@ -51,8 +42,8 @@ type CustomerInput = Record<string, unknown> & {
 };
 
 export async function createCustomer({ firstName, lastName, email, meta }: CustomerInput) {
-	if(!firstName || !lastName || !email) throw new CustomerServiceError('Missing customer data', 'INVALID');
-	if(!/.+@.+\..{2,}/.test(email)) throw new CustomerServiceError('Invalid email', 'INVALID');
+	if (!firstName || !lastName || !email) throw new CustomerServiceError('Missing customer data', 'INVALID');
+	if (!/.+@.+\..{2,}/.test(email)) throw new CustomerServiceError('Invalid email', 'INVALID');
 
 	const customer = {
 		id: uuidV4(),
@@ -71,7 +62,7 @@ export async function createCustomer({ firstName, lastName, email, meta }: Custo
 		`;
 
 		return createdCustomer;
-	} catch(e) {
+	} catch (e) {
 		throw new CustomerServiceError('Could not create customer', 'UNKNOWN', e);
 	}
 }
@@ -84,7 +75,7 @@ export async function getCustomers(_options?: Record<string, unknown>): Promise<
 		`;
 
 		return customers;
-	} catch(e) {
+	} catch (e) {
 		throw new CustomerServiceError('Could not query customers', 'UNKNOWN', e);
 	}
 }
@@ -97,28 +88,22 @@ export async function getCustomer(id: string): Promise<Customer> {
 			FROM customers
 			WHERE id = ${id}
 		`;
-	} catch(e) {
+	} catch (e) {
 		throw new CustomerServiceError('Could not query customers', 'UNKNOWN', e);
 	}
 
-	if(!customer) throw new CustomerServiceError('Customer not found', 'NOT_FOUND');
+	if (!customer) throw new CustomerServiceError('Customer not found', 'NOT_FOUND');
 
 	return customer;
 }
 
 export async function updateCustomer(id: string, updates: Record<string, unknown>): Promise<Customer> {
-	for(const u in updates) {
+	for (const u in updates) {
 		// Update whitelist
-		if(![
-			'firstName',
-			'lastName',
-			'email',
-			'meta',
-			'updatedBy'
-		].includes(u)) throw new CustomerServiceError('Invalid customer data', 'INVALID');
+		if (!['firstName', 'lastName', 'email', 'meta', 'updatedBy'].includes(u)) throw new CustomerServiceError('Invalid customer data', 'INVALID');
 	}
 
-	if(Object.keys(updates).length === 1 && updates.updatedBy) throw new CustomerServiceError('Invalid customer data', 'INVALID');
+	if (Object.keys(updates).length === 1 && updates.updatedBy) throw new CustomerServiceError('Invalid customer data', 'INVALID');
 
 	let customer: Customer | undefined;
 	try {
@@ -128,12 +113,11 @@ export async function updateCustomer(id: string, updates: Record<string, unknown
 			WHERE id = ${id}
 			RETURNING ${sql(customerColumns)}
 		`;
-	} catch(e) {
+	} catch (e) {
 		throw new CustomerServiceError('Could not update customer', 'UNKNOWN', e);
 	}
 
-	if(!customer) throw new CustomerServiceError('Customer not found', 'NOT_FOUND');
+	if (!customer) throw new CustomerServiceError('Customer not found', 'NOT_FOUND');
 
 	return customer;
 }
-

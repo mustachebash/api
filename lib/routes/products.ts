@@ -14,22 +14,22 @@ productsRouter
 		try {
 			const products = await getProducts(ctx.query);
 
-			return ctx.body = products;
-		} catch(e) {
+			return (ctx.body = products);
+		} catch (e) {
 			throw ctx.throw(e);
 		}
 	})
 	.post('/', async ctx => {
-		if(!isRecordLike(ctx.request.body)) throw ctx.throw(400);
+		if (!isRecordLike(ctx.request.body)) throw ctx.throw(400);
 
 		try {
 			const product = await createProduct(ctx.request.body);
 
 			ctx.set('Location', `https://${ctx.host}${ctx.path}/${product.id}`);
 			ctx.status = 201;
-			return ctx.body = product;
-		} catch(e) {
-			if(e.code === 'INVALID') throw ctx.throw(400, e);
+			return (ctx.body = product);
+		} catch (e) {
+			if (e.code === 'INVALID') throw ctx.throw(400, e);
 
 			throw ctx.throw(e);
 		}
@@ -40,22 +40,22 @@ productsRouter
 		try {
 			const product = await getProduct(ctx.params.id);
 
-			if(!product) throw ctx.throw(404);
+			if (!product) throw ctx.throw(404);
 
-			return ctx.body = product;
-		} catch(e) {
+			return (ctx.body = product);
+		} catch (e) {
 			throw ctx.throw(e);
 		}
 	})
 	.patch('/:id', async ctx => {
-		if(!isRecordLike(ctx.request.body)) throw ctx.throw(400);
+		if (!isRecordLike(ctx.request.body)) throw ctx.throw(400);
 
 		try {
-			const product = await updateProduct(ctx.params.id, {...ctx.request.body, updatedBy: ctx.state.user.id});
+			const product = await updateProduct(ctx.params.id, { ...ctx.request.body, updatedBy: ctx.state.user.id });
 
-			return ctx.body = product;
-		} catch(e) {
-			if(e.code === 'INVALID') throw ctx.throw(400);
+			return (ctx.body = product);
+		} catch (e) {
+			if (e.code === 'INVALID') throw ctx.throw(400);
 
 			throw ctx.throw(e);
 		}

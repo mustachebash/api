@@ -43,21 +43,7 @@ type EventRow = Omit<Event, 'budget' | 'alcoholRevenue' | 'foodRevenue'> & {
 	foodRevenue: string | null;
 };
 
-const eventColumns = [
-	'id',
-	'name',
-	'date',
-	'status',
-	'created',
-	'updated',
-	'opening_sales',
-	'sales_enabled',
-	'max_capacity',
-	'budget',
-	'alcohol_revenue',
-	'food_revenue',
-	'meta'
-];
+const eventColumns = ['id', 'name', 'date', 'status', 'created', 'updated', 'opening_sales', 'sales_enabled', 'max_capacity', 'budget', 'alcohol_revenue', 'food_revenue', 'meta'];
 
 const convertNumericTypeToNumbers = (e: EventRow): Event => ({
 	...e,
@@ -65,7 +51,6 @@ const convertNumericTypeToNumbers = (e: EventRow): Event => ({
 	alcoholRevenue: e.alcoholRevenue !== null ? Number(e.alcoholRevenue) : null,
 	foodRevenue: e.foodRevenue !== null ? Number(e.foodRevenue) : null
 });
-
 
 export async function getEvents({ status }: { status?: string } = {}): Promise<Event[]> {
 	try {
@@ -76,7 +61,7 @@ export async function getEvents({ status }: { status?: string } = {}): Promise<E
 		`;
 
 		return events.map(convertNumericTypeToNumbers);
-	} catch(e) {
+	} catch (e) {
 		throw new EventsServiceError('Could not query events', 'UNKNOWN', e);
 	}
 }
@@ -84,36 +69,27 @@ export async function getEvents({ status }: { status?: string } = {}): Promise<E
 export async function getEvent(id: string): Promise<Event> {
 	let event: Event | undefined;
 	try {
-		[event] = (await sql<EventRow[]>`
+		[event] = (
+			await sql<EventRow[]>`
 			SELECT ${sql(eventColumns)}
 			FROM events
 			WHERE id = ${id}
-		`).map(convertNumericTypeToNumbers);
-	} catch(e) {
+		`
+		).map(convertNumericTypeToNumbers);
+	} catch (e) {
 		throw new EventsServiceError('Could not query event', 'UNKNOWN', e);
 	}
 
-	if(!event) throw new EventsServiceError('Event not found', 'NOT_FOUND');
+	if (!event) throw new EventsServiceError('Event not found', 'NOT_FOUND');
 
 	return event;
 }
 
 export async function createEvent(newEvent: Record<string, unknown>): Promise<Event> {
-	for(const u in newEvent) {
+	for (const u in newEvent) {
 		// Fields whitelist
-		if(![
-			'id',
-			'date',
-			'name',
-			'openingSales',
-			'salesEnabled',
-			'maxCapacity',
-			'alcoholRevenue',
-			'foodRevenue',
-			'status',
-			'budget',
-			'meta'
-		].includes(u)) throw new EventsServiceError('Invalid event data', 'INVALID');
+		if (!['id', 'date', 'name', 'openingSales', 'salesEnabled', 'maxCapacity', 'alcoholRevenue', 'foodRevenue', 'status', 'budget', 'meta'].includes(u))
+			throw new EventsServiceError('Invalid event data', 'INVALID');
 	}
 
 	const event = {
@@ -128,55 +104,48 @@ export async function createEvent(newEvent: Record<string, unknown>): Promise<Ev
 		alcoholRevenue: newEvent.alcoholRevenue,
 		foodRevenue: newEvent.foodRevenue,
 		meta: {
-			...newEvent.meta as Record<string, unknown>
+			...(newEvent.meta as Record<string, unknown>)
 		}
 	};
 
 	try {
-		const [createdEvent] = (await sql<EventRow[]>`
+		const [createdEvent] = (
+			await sql<EventRow[]>`
 			INSERT INTO events ${sql(event)}
 			RETURNING ${sql(eventColumns)}
-		`).map(convertNumericTypeToNumbers);
+		`
+		).map(convertNumericTypeToNumbers);
 
 		return createdEvent;
-	} catch(e) {
+	} catch (e) {
 		throw new EventsServiceError('Could not create event', 'UNKNOWN', e);
 	}
 }
 
 export async function updateEvent(id: string, updates: Record<string, unknown>): Promise<Event> {
-	for(const u in updates) {
+	for (const u in updates) {
 		// Update whitelist
-		if(![
-			'date',
-			'name',
-			'openingSales',
-			'salesEnabled',
-			'maxCapacity',
-			'alcoholRevenue',
-			'foodRevenue',
-			'status',
-			'budget',
-			'meta',
-			'updatedBy'
-		].includes(u)) throw new EventsServiceError('Invalid event data', 'INVALID');
+		if (!['date', 'name', 'openingSales', 'salesEnabled', 'maxCapacity', 'alcoholRevenue', 'foodRevenue', 'status', 'budget', 'meta', 'updatedBy'].includes(u))
+			throw new EventsServiceError('Invalid event data', 'INVALID');
 	}
 
-	if(Object.keys(updates).length === 1 && updates.updatedBy) throw new EventsServiceError('Invalid event data', 'INVALID');
+	if (Object.keys(updates).length === 1 && updates.updatedBy) throw new EventsServiceError('Invalid event data', 'INVALID');
 
 	let event: Event | undefined;
 	try {
-		[event] = (await sql<EventRow[]>`
+		[event] = (
+			await sql<EventRow[]>`
 			UPDATE events
 			SET ${sql(updates)}, updated = now()
 			WHERE id = ${id}
 			RETURNING ${sql(eventColumns)}
-		`).map(convertNumericTypeToNumbers);
-	} catch(e) {
+		`
+		).map(convertNumericTypeToNumbers);
+	} catch (e) {
 		throw new EventsServiceError('Could not update event', 'UNKNOWN', e);
 	}
 
-	if(!event) throw new EventsServiceError('Event not found', 'NOT_FOUND');
+	if (!event) throw new EventsServiceError('Event not found', 'NOT_FOUND');
 
 	return event;
 }
@@ -239,11 +208,11 @@ export async function getEventSettings(id: string): Promise<EventSettings> {
 			WHERE e.id = ${id}
 			GROUP BY e.id
 		`;
-	} catch(e) {
+	} catch (e) {
 		throw new EventsServiceError('Could not query event', 'UNKNOWN', e);
 	}
 
-	if(!event) throw new EventsServiceError('Event not found', 'NOT_FOUND');
+	if (!event) throw new EventsServiceError('Event not found', 'NOT_FOUND');
 
 	return event;
 }
@@ -270,7 +239,8 @@ type EventSummary = {
 
 export async function getEventSummary(id: string): Promise<EventSummary> {
 	try {
-		const [summary] = (await sql<EventSummaryRow[]>`
+		const [summary] = (
+			await sql<EventSummaryRow[]>`
 			SELECT
 				e.id as event_id,
 				count(g.id) FILTER (WHERE g.status <> 'archived') as total_guests,
@@ -287,18 +257,21 @@ export async function getEventSummary(id: string): Promise<EventSummary> {
 				ON g.event_id = e.id
 			WHERE e.id = ${id}
 			GROUP BY e.id
-		`).map((s): EventSummary => ({
-			...s,
-			totalGuests: Number(s.totalGuests),
-			totalPaidGuests: Number(s.totalPaidGuests),
-			totalCompedGuests: Number(s.totalCompedGuests),
-			totalVipGuests: Number(s.totalVipGuests),
-			guestsToday: Number(s.guestsToday),
-			checkedIn: Number(s.checkedIn)
-		}));
+		`
+		).map(
+			(s): EventSummary => ({
+				...s,
+				totalGuests: Number(s.totalGuests),
+				totalPaidGuests: Number(s.totalPaidGuests),
+				totalCompedGuests: Number(s.totalCompedGuests),
+				totalVipGuests: Number(s.totalVipGuests),
+				guestsToday: Number(s.guestsToday),
+				checkedIn: Number(s.checkedIn)
+			})
+		);
 
 		return summary;
-	} catch(e) {
+	} catch (e) {
 		throw new EventsServiceError('Could not query event summary', 'UNKNOWN', e);
 	}
 }
@@ -331,7 +304,8 @@ type EventExtendedStats = {
 
 export async function getEventExtendedStats(id: string): Promise<EventExtendedStats> {
 	try {
-		const [extendedStats] = (await sql<EventExtendedStatsRow[]>`
+		const [extendedStats] = (
+			await sql<EventExtendedStatsRow[]>`
 			WITH ProductAggregation AS (
 				SELECT
 					p.event_id,
@@ -392,35 +366,30 @@ export async function getEventExtendedStats(id: string): Promise<EventExtendedSt
 				ON e.id = oa.event_id
 			WHERE e.id = ${id}
 			GROUP BY e.id, revenue_today, promo_revenue_today
-		`).map(({
-			revenueToday,
-			promoRevenueToday,
-			totalRevenue,
-			totalPromoRevenue,
-			eventBudget,
-			alcoholRevenue,
-			foodRevenue,
-			...rest
-		}): EventExtendedStats => ({
-			...rest,
-			revenueToday: Number(revenueToday),
-			promoRevenueToday: Number(promoRevenueToday),
-			totalRevenue: Number(totalRevenue),
-			totalPromoRevenue: Number(totalPromoRevenue),
-			eventBudget: Number(eventBudget),
-			alcoholRevenue: Number(alcoholRevenue),
-			foodRevenue: Number(foodRevenue)
-		}));
+		`
+		).map(
+			({ revenueToday, promoRevenueToday, totalRevenue, totalPromoRevenue, eventBudget, alcoholRevenue, foodRevenue, ...rest }): EventExtendedStats => ({
+				...rest,
+				revenueToday: Number(revenueToday),
+				promoRevenueToday: Number(promoRevenueToday),
+				totalRevenue: Number(totalRevenue),
+				totalPromoRevenue: Number(totalPromoRevenue),
+				eventBudget: Number(eventBudget),
+				alcoholRevenue: Number(alcoholRevenue),
+				foodRevenue: Number(foodRevenue)
+			})
+		);
 
 		return extendedStats;
-	} catch(e) {
+	} catch (e) {
 		throw new EventsServiceError('Could not query event extended stats', 'UNKNOWN', e);
 	}
 }
 
 export async function getEventDailyTickets(id: string): Promise<{ date: Date; tickets: number }[]> {
 	try {
-		const chart = (await sql<{ date: Date; tickets: string }[]>`
+		const chart = (
+			await sql<{ date: Date; tickets: string }[]>`
 			SELECT
 				(o.created AT TIME ZONE 'UTC' AT TIME ZONE 'America/Los_Angeles')::DATE AS date,
 				SUM(oi.quantity) as tickets
@@ -433,20 +402,22 @@ export async function getEventDailyTickets(id: string): Promise<{ date: Date; ti
 			AND o.status != 'canceled'
 			GROUP BY date
 			ORDER BY 1 ASC;
-		`).map(row => ({
+		`
+		).map(row => ({
 			...row,
 			tickets: Number(row.tickets)
 		}));
 
 		return chart;
-	} catch(e) {
+	} catch (e) {
 		throw new EventsServiceError('Could not query event extended stats', 'UNKNOWN', e);
 	}
 }
 
 export async function getOpeningSales(id: string): Promise<{ minuteCreated: string; tickets: number }[]> {
 	try {
-		const chart = (await sql<{minuteCreated: string; tickets: string}[]>`
+		const chart = (
+			await sql<{ minuteCreated: string; tickets: string }[]>`
 			SELECT
 				DATE_TRUNC('minute', (o.created AT TIME ZONE 'UTC')) AS minute_created,
 				SUM(oi.quantity) as tickets
@@ -462,21 +433,22 @@ export async function getOpeningSales(id: string): Promise<{ minuteCreated: stri
 				AND (o.created AT TIME ZONE 'UTC' AT TIME ZONE 'America/Los_Angeles')::DATE = (e.opening_sales AT TIME ZONE 'UTC' AT TIME ZONE 'America/Los_Angeles')::DATE
 			GROUP BY minute_created
 			ORDER BY 1 ASC;
-		`).map(row => ({
+		`
+		).map(row => ({
 			...row,
 			tickets: Number(row.tickets)
 		}));
 
-
 		return chart;
-	} catch(e) {
+	} catch (e) {
 		throw new EventsServiceError('Could not query event extended stats', 'UNKNOWN', e);
 	}
 }
 
 export async function getEventCheckins(id: string): Promise<{ minuteCheckedIn: string; checkins: number }[]> {
 	try {
-		const chart = (await sql<{minuteCheckedIn: string; checkins: string}[]>`
+		const chart = (
+			await sql<{ minuteCheckedIn: string; checkins: string }[]>`
 			SELECT
 				date_bin('15 minutes', (g.check_in_time AT TIME ZONE 'UTC'), TIMESTAMP '2010-01-01') AS minute_checked_in,
 				count(g.id) as checkins
@@ -485,14 +457,14 @@ export async function getEventCheckins(id: string): Promise<{ minuteCheckedIn: s
 			AND g.status = 'checked_in'
 			GROUP BY minute_checked_in
 			ORDER BY 1 ASC;
-		`).map(row => ({
+		`
+		).map(row => ({
 			...row,
 			checkins: Number(row.checkins)
 		}));
 
-
 		return chart;
-	} catch(e) {
+	} catch (e) {
 		throw new EventsServiceError('Could not query event extended stats', 'UNKNOWN', e);
 	}
 }

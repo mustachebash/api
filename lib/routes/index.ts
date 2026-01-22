@@ -39,8 +39,7 @@ const EMAIL_LIST = '90392ecd5e',
 // /v1/me/orders?token=<customer "access" token>
 apiRouter
 	.get('/mytickets', async ctx => {
-		if(!ctx.query.t || typeof ctx.query.t !== 'string') throw ctx.throw(400);
-
+		if (!ctx.query.t || typeof ctx.query.t !== 'string') throw ctx.throw(400);
 
 		const { sub: orderId } = validateOrderToken(ctx.query.t);
 
@@ -48,8 +47,8 @@ apiRouter
 		let tickets;
 		try {
 			tickets = await getCustomerActiveTicketsByOrderId(orderId);
-		} catch(e) {
-			if(isServiceError(e)) {
+		} catch (e) {
+			if (isServiceError(e)) {
 				if (e.code === 'NOT_FOUND') throw ctx.throw(404);
 			}
 
@@ -59,30 +58,30 @@ apiRouter
 		let accommodations;
 		try {
 			accommodations = await getCustomerActiveAccommodationsByOrderId(orderId);
-		} catch(e) {
-			if(isServiceError(e)) {
+		} catch (e) {
+			if (isServiceError(e)) {
 				if (e.code === 'NOT_FOUND') throw ctx.throw(404);
 			}
 
 			throw e;
 		}
 
-		if(!tickets.length && !accommodations.length) {
-			return ctx.status = 204;
+		if (!tickets.length && !accommodations.length) {
+			return (ctx.status = 204);
 		}
 
 		let customer;
 		try {
 			customer = await getCustomer(tickets[0]?.customerId || accommodations[0]?.customerId);
-		} catch(e) {
-			if(isServiceError(e)) {
+		} catch (e) {
+			if (isServiceError(e)) {
 				if (e.code === 'NOT_FOUND') throw ctx.throw(404);
 			}
 
 			throw e;
 		}
 
-		return ctx.body = {
+		return (ctx.body = {
 			customer: {
 				firstName: customer.firstName,
 				lastName: customer.lastName,
@@ -90,12 +89,12 @@ apiRouter
 			},
 			tickets,
 			accommodations
-		};
+		});
 	})
 	.post('/mytickets/transfers', async ctx => {
-		if(!isRecordLike(ctx.request.body)) throw ctx.throw(400);
+		if (!isRecordLike(ctx.request.body)) throw ctx.throw(400);
 
-		if(!ctx.request.body.orderToken || typeof ctx.request.body.orderToken !== 'string') throw ctx.throw(400);
+		if (!ctx.request.body.orderToken || typeof ctx.request.body.orderToken !== 'string') throw ctx.throw(400);
 
 		// Use the order token as authorization
 		validateOrderToken(ctx.request.body.orderToken);
@@ -109,18 +108,18 @@ apiRouter
 		for (const orderId of orderIds.values()) {
 			const guestIds = selectedTickets.filter(ticket => ticket.orderId === orderId).map(ticket => ticket.id);
 			try {
-				const { order } = await transferTickets(orderId, {transferee, guestIds}),
+				const { order } = await transferTickets(orderId, { transferee, guestIds }),
 					{ id, parentOrderId } = order;
 
 				parentOrderIds.push(parentOrderId);
 				try {
 					newOrderTokens.push(await generateOrderToken(id));
-				} catch(e) {
+				} catch (e) {
 					ctx.state.log.error(e, 'Error creating order token');
 				}
-			} catch(e) {
-				if(e.code === 'INVALID') throw ctx.throw(400, e, {expose: false});
-				if(e.code === 'NOT_FOUND') throw ctx.throw(404);
+			} catch (e) {
+				if (e.code === 'INVALID') throw ctx.throw(400, e, { expose: false });
+				if (e.code === 'NOT_FOUND') throw ctx.throw(404);
 
 				throw ctx.throw(e);
 			}
@@ -131,115 +130,110 @@ apiRouter
 		// The first order token and parent order id are fine for this
 		sendTransfereeConfirmation(firstName, lastName, email, parentOrderIds[0], newOrderTokens[0]);
 		// Add them to the mailing list and tag as an attendee
-		upsertEmailSubscriber(EMAIL_LIST, {email, firstName, lastName, tags: [EMAIL_TAG]});
+		upsertEmailSubscriber(EMAIL_LIST, { email, firstName, lastName, tags: [EMAIL_TAG] });
 
 		ctx.status = 201;
-		return ctx.body = {};
+		return (ctx.body = {});
 	});
 
-apiRouter
-	.get('/event-settings/:eventId', async ctx => {
-		try {
-			const eventSettings = await getEventSettings(ctx.params.eventId);
+apiRouter.get('/event-settings/:eventId', async ctx => {
+	try {
+		const eventSettings = await getEventSettings(ctx.params.eventId);
 
-			return ctx.body = eventSettings;
-		} catch(e) {
-			if(e.code === 'NOT_FOUND') throw ctx.throw(404);
+		return (ctx.body = eventSettings);
+	} catch (e) {
+		if (e.code === 'NOT_FOUND') throw ctx.throw(404);
 
-			throw ctx.throw(e);
-		}
-	});
+		throw ctx.throw(e);
+	}
+});
 
-apiRouter
-	.post('/check-ins', authorizeUser, requiresPermission('doorman'), async ctx => {
-		if(!ctx.request.body.ticketToken) throw ctx.throw(400);
+apiRouter.post('/check-ins', authorizeUser, requiresPermission('doorman'), async ctx => {
+	if (!ctx.request.body.ticketToken) throw ctx.throw(400);
 
-		try {
-			const response = await checkInWithTicket(ctx.request.body.ticketToken, ctx.state.user.id);
+	try {
+		const response = await checkInWithTicket(ctx.request.body.ticketToken, ctx.state.user.id);
 
-			return ctx.body = response;
-		} catch(e) {
-			if(isRecordLike(e)) {
-				if(e.code === 'TICKET_NOT_FOUND') throw ctx.throw(404);
+		return (ctx.body = response);
+	} catch (e) {
+		if (isRecordLike(e)) {
+			if (e.code === 'TICKET_NOT_FOUND') throw ctx.throw(404);
 
-				// These codes will trigger a JSON response but 4xx status
-				const codeStatuses: Record<string, number> = {
-					'GUEST_ALREADY_CHECKED_IN': 409,
-					'EVENT_NOT_ACTIVE': 410,
-					'EVENT_NOT_STARTED': 412,
-					'TICKET_NOT_ACTIVE': 423,
-					'GUEST_NOT_ACTIVE': 423
-				};
-				// For response bodies on errors, we need to manually set the response
-				// This will not trigger an error event, or stop upstream propagation
-				// if(Object.keys(codeStatuses).includes(e.code)) {
-				if(typeof e.code === 'string' && e.code in codeStatuses) {
-					ctx.status = codeStatuses[e.code];
-					return ctx.body = e.context;
-				}
+			// These codes will trigger a JSON response but 4xx status
+			const codeStatuses: Record<string, number> = {
+				GUEST_ALREADY_CHECKED_IN: 409,
+				EVENT_NOT_ACTIVE: 410,
+				EVENT_NOT_STARTED: 412,
+				TICKET_NOT_ACTIVE: 423,
+				GUEST_NOT_ACTIVE: 423
+			};
+			// For response bodies on errors, we need to manually set the response
+			// This will not trigger an error event, or stop upstream propagation
+			// if(Object.keys(codeStatuses).includes(e.code)) {
+			if (typeof e.code === 'string' && e.code in codeStatuses) {
+				ctx.status = codeStatuses[e.code];
+				return (ctx.body = e.context);
 			}
-
-			throw ctx.throw(e);
 		}
-	});
 
-apiRouter
-	.post('/inspect', authorizeUser, requiresPermission('doorman'), async ctx => {
-		if(!ctx.request.body.ticketToken) throw ctx.throw(400);
+		throw ctx.throw(e);
+	}
+});
 
-		try {
-			const response = await inspectTicket(ctx.request.body.ticketToken);
+apiRouter.post('/inspect', authorizeUser, requiresPermission('doorman'), async ctx => {
+	if (!ctx.request.body.ticketToken) throw ctx.throw(400);
 
-			return ctx.body = response;
-		} catch(e) {
-			if(isRecordLike(e)) {
-				if(e.code === 'TICKET_NOT_FOUND') throw ctx.throw(404);
-			}
+	try {
+		const response = await inspectTicket(ctx.request.body.ticketToken);
 
-			throw ctx.throw(e);
+		return (ctx.body = response);
+	} catch (e) {
+		if (isRecordLike(e)) {
+			if (e.code === 'TICKET_NOT_FOUND') throw ctx.throw(404);
 		}
-	});
 
-apiRouter
-	.post('/authenticate', async ctx => {
-		const requestBody = ctx.request.body;
-		if(!isRecordLike(requestBody)) throw ctx.throw(400);
-		if(typeof requestBody.token !== 'string') throw ctx.throw(400);
-		if(typeof requestBody.authority !== 'string') throw ctx.throw(400);
+		throw ctx.throw(e);
+	}
+});
 
-		try {
-			let user;
-			switch(requestBody.authority) {
-				case 'google':
-					user = await authenticateGoogleUser(requestBody.token, {userAgent: ctx.get('user-agent'), ip: ctx.ip});
-					break;
-			}
+apiRouter.post('/authenticate', async ctx => {
+	const requestBody = ctx.request.body;
+	if (!isRecordLike(requestBody)) throw ctx.throw(400);
+	if (typeof requestBody.token !== 'string') throw ctx.throw(400);
+	if (typeof requestBody.authority !== 'string') throw ctx.throw(400);
 
-			return ctx.body = user;
-		} catch(e) {
-			if (e.code === 'UNAUTHORIZED') throw ctx.throw(401);
-
-			throw ctx.throw(e);
+	try {
+		let user;
+		switch (requestBody.authority) {
+			case 'google':
+				user = await authenticateGoogleUser(requestBody.token, { userAgent: ctx.get('user-agent'), ip: ctx.ip });
+				break;
 		}
-	});
 
-apiRouter
-	.post('/refresh-access-token', async ctx => {
-		const requestBody = ctx.request.body;
-		if(!isRecordLike(requestBody)) throw ctx.throw(400);
-		if(typeof requestBody.refreshToken !== 'string') throw ctx.throw(400);
+		return (ctx.body = user);
+	} catch (e) {
+		if (e.code === 'UNAUTHORIZED') throw ctx.throw(401);
 
-		try {
-			const accessToken = await refreshAccessToken(requestBody.refreshToken, {userAgent: ctx.get('user-agent'), ip: ctx.ip});
+		throw ctx.throw(e);
+	}
+});
 
-			ctx.status = 201;
-			return ctx.body = {accessToken};
-		} catch(e) {
-			if (e.code === 'UNAUTHORIZED') throw ctx.throw(403);
+apiRouter.post('/refresh-access-token', async ctx => {
+	const requestBody = ctx.request.body;
+	if (!isRecordLike(requestBody)) throw ctx.throw(400);
+	if (typeof requestBody.refreshToken !== 'string') throw ctx.throw(400);
 
-			throw ctx.throw(e);
-		}
-	});
+	try {
+		const accessToken = await refreshAccessToken(requestBody.refreshToken, { userAgent: ctx.get('user-agent'), ip: ctx.ip });
+
+		ctx.status = 201;
+		return (ctx.body = { accessToken });
+	} catch (e) {
+		if (e.code === 'UNAUTHORIZED') throw ctx.throw(403);
+
+		throw ctx.throw(e);
+	}
+});
 
 class ClientError extends Error {
 	code: string;
@@ -251,7 +245,7 @@ class ClientError extends Error {
 	colno?: string;
 	clientErrorStack?: string;
 
-	constructor(err: Record<string, string>, { userAgent }: {userAgent: string}) {
+	constructor(err: Record<string, string>, { userAgent }: { userAgent: string }) {
 		super(err.message);
 
 		this.name = this.constructor.name;
@@ -266,14 +260,13 @@ class ClientError extends Error {
 	}
 }
 
-apiRouter
-	.post('/errors', ctx => {
-		const clientError = ctx.request.body,
-			err = new ClientError(clientError as Record<string, string>, {userAgent: ctx.get('user-agent')});
+apiRouter.post('/errors', ctx => {
+	const clientError = ctx.request.body,
+		err = new ClientError(clientError as Record<string, string>, { userAgent: ctx.get('user-agent') });
 
-		ctx.state.log.error(err);
+	ctx.state.log.error(err);
 
-		return ctx.status = 204;
-	});
+	return (ctx.status = 204);
+});
 
 export default apiRouter;
