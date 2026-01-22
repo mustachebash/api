@@ -7,7 +7,7 @@ import { v4 as uuidV4 } from 'uuid';
 import log, { Logger } from './utils/log.js';
 import apiRouter from './routes/index.js';
 
-type JSONValue = string | number | boolean | null | { [x: string]: JSONValue | unknown } | Array<JSONValue>;
+type JSONValue = string | number | boolean | null | { [x: string]: JSONValue | unknown } | JSONValue[];
 
 interface MustacheBashState extends DefaultState {
 	user: {

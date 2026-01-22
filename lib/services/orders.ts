@@ -50,7 +50,7 @@ export type Order = {
 type OrderRow = Omit<Order, 'amount'> & { amount: string };
 
 type OrderWithItems = Order & {
-	items: Array<{ productId: string; quantity: number }>;
+	items: { productId: string; quantity: number }[];
 	customerEmail?: string;
 	customerFirstName?: string;
 	customerLastName?: string;

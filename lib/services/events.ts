@@ -309,7 +309,7 @@ type EventExtendedStatsRow = {
 	eventMaxCapacity: number | null;
 	alcoholRevenue: string | null;
 	foodRevenue: string | null;
-	salesTiers: Array<{ name: string; quantity: string; price: string }>;
+	salesTiers: { name: string; quantity: string; price: string }[];
 	totalRevenue: string | null;
 	totalPromoRevenue: string | null;
 	revenueToday: string;
@@ -322,7 +322,7 @@ type EventExtendedStats = {
 	eventMaxCapacity: number | null;
 	alcoholRevenue: number;
 	foodRevenue: number;
-	salesTiers: Array<{ name: string; quantity: string; price: string }>;
+	salesTiers: { name: string; quantity: string; price: string }[];
 	totalRevenue: number;
 	totalPromoRevenue: number;
 	revenueToday: number;
@@ -418,9 +418,9 @@ export async function getEventExtendedStats(id: string): Promise<EventExtendedSt
 	}
 }
 
-export async function getEventDailyTickets(id: string): Promise<Array<{ date: Date; tickets: number }>> {
+export async function getEventDailyTickets(id: string): Promise<{ date: Date; tickets: number }[]> {
 	try {
-		const chart = (await sql<Array<{ date: Date; tickets: string }>>`
+		const chart = (await sql<{ date: Date; tickets: string }[]>`
 			SELECT
 				(o.created AT TIME ZONE 'UTC' AT TIME ZONE 'America/Los_Angeles')::DATE AS date,
 				SUM(oi.quantity) as tickets
@@ -444,7 +444,7 @@ export async function getEventDailyTickets(id: string): Promise<Array<{ date: Da
 	}
 }
 
-export async function getOpeningSales(id: string): Promise<Array<{ minuteCreated: string; tickets: number }>> {
+export async function getOpeningSales(id: string): Promise<{ minuteCreated: string; tickets: number }[]> {
 	try {
 		const chart = (await sql<{minuteCreated: string; tickets: string}[]>`
 			SELECT
@@ -474,7 +474,7 @@ export async function getOpeningSales(id: string): Promise<Array<{ minuteCreated
 	}
 }
 
-export async function getEventCheckins(id: string): Promise<Array<{ minuteCheckedIn: string; checkins: number }>> {
+export async function getEventCheckins(id: string): Promise<{ minuteCheckedIn: string; checkins: number }[]> {
 	try {
 		const chart = (await sql<{minuteCheckedIn: string; checkins: string}[]>`
 			SELECT
