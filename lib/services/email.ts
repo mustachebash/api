@@ -12,7 +12,7 @@ import MailChimpClient from 'mailchimp-api-v3';
 const mailgun = MailgunJs({apiKey: config.mailgun.apiKey, domain: config.mailgun.domain});
 
 const mailchimp = new MailChimpClient(config.mailchimp.apiKey),
-	md5 = string => crypto.createHash('md5').update(string).digest('hex');
+	md5 = (string: string) => crypto.createHash('md5').update(string).digest('hex');
 
 /* eslint-disable max-len */
 /**
@@ -25,7 +25,7 @@ const mailchimp = new MailChimpClient(config.mailchimp.apiKey),
  * @param  {Array}   [tags=[] string }]   tags to apply to member
  * @return {Promise}
  */
-export async function upsertEmailSubscriber(listId, { email, firstName, lastName, tags = [] }) {
+export async function upsertEmailSubscriber(listId: string, { email, firstName, lastName, tags = [] }: { email: string; firstName: string; lastName: string; tags?: string[] }) {
 	const memberHash = md5(email.toLowerCase());
 
 	try {
@@ -50,7 +50,7 @@ export async function upsertEmailSubscriber(listId, { email, firstName, lastName
 	}
 }
 
-export function sendReceipt(guestFirstName, guestLastName, guestEmail, confirmation, orderId, orderToken, amount) {
+export function sendReceipt(guestFirstName: string, guestLastName: string, guestEmail: string, confirmation: string, orderId: string, orderToken: string, amount: number) {
 	mailgun.messages().send({
 		from: 'Mustache Bash Tickets <contact@mustachebash.com>',
 		to: guestFirstName + ' ' + guestLastName + ' <' + guestEmail + '> ',
@@ -363,7 +363,7 @@ table[class=body] .article {
 		.catch(err => log.error({err, customerEmail, confirmation}, 'Receipt email failed to send'));
 }
 
-export function sendTransfereeConfirmation(transfereeFirstName, transfereeLastName, transfereeEmail, parentOrderId, orderToken) {
+export function sendTransfereeConfirmation(transfereeFirstName: string, transfereeLastName: string, transfereeEmail: string, parentOrderId: string, orderToken: string) {
 	mailgun.messages().send({
 		from: 'Mustache Bash Tickets <contact@mustachebash.com>',
 		to: transfereeFirstName + ' ' + transfereeLastName + ' <' + transfereeEmail + '> ',

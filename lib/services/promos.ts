@@ -38,6 +38,12 @@ export type Promo = {
 	meta: Record<string, unknown>;
 };
 
+type PromoRow = Omit<Promo, 'price' | 'percentDiscount' | 'flatDiscount'> & {
+	price?: string;
+	percentDiscount?: string;
+	flatDiscount?: string;
+};
+
 const promoColumns = [
 	'id',
 	'created',
@@ -55,11 +61,11 @@ const promoColumns = [
 	'meta'
 ];
 
-const convertPriceAndDiscountsToNumbers = (p: Promo): Promo => ({
-	...p,
-	...(typeof p.price === 'string' ? {price: Number(p.price)} : {}),
-	...(typeof p.percentDiscount === 'string' ? {percentDiscount: Number(p.percentDiscount)} : {}),
-	...(typeof p.flatDiscount === 'string' ? {flatDiscount: Number(p.flatDiscount)} : {})
+const convertPriceAndDiscountsToNumbers = ({ price, percentDiscount, flatDiscount, ...rest }: PromoRow): Promo => ({
+	...rest,
+	...(price !== undefined ? {price: Number(price)} : {}),
+	...(percentDiscount !== undefined ? {percentDiscount: Number(percentDiscount)} : {}),
+	...(flatDiscount !== undefined ? {flatDiscount: Number(flatDiscount)} : {})
 });
 
 type PromoInput = {
@@ -107,7 +113,7 @@ export async function createPromo({ price, flatDiscount, percentDiscount, maxUse
 	}
 
 	try {
-		const [createdPromo] = (await sql<Promo[]>`
+		const [createdPromo] = (await sql<PromoRow[]>`
 			INSERT INTO promos ${sql(promo)}
 			RETURNING ${sql(promoColumns)}
 		`).map(convertPriceAndDiscountsToNumbers);
@@ -122,7 +128,7 @@ export async function getPromos({ eventId }: {eventId?: string;} = {}) {
 	try {
 		let promos;
 		if(eventId) {
-			promos = await sql<Promo[]>`
+			promos = await sql<PromoRow[]>`
 				SELECT ${sql(promoColumns.map(c => `p.${c}`))}
 				FROM promos as p
 				JOIN products as pr
@@ -130,7 +136,7 @@ export async function getPromos({ eventId }: {eventId?: string;} = {}) {
 				WHERE pr.event_id = ${eventId}
 			`;
 		} else {
-			promos = await sql<Promo[]>`
+			promos = await sql<PromoRow[]>`
 				SELECT ${sql(promoColumns)}
 				FROM promos
 			`;
@@ -145,7 +151,7 @@ export async function getPromos({ eventId }: {eventId?: string;} = {}) {
 export async function getPromo(id: string) {
 	let promo;
 	try {
-		[promo] = (await sql<Promo[]>`
+		[promo] = (await sql<PromoRow[]>`
 			SELECT ${sql(promoColumns)}
 			FROM promos
 			WHERE id = ${id}
@@ -175,7 +181,7 @@ export async function updatePromo(id: string, updates: Record<string, unknown>) 
 
 	let promo;
 	try {
-		[promo] = (await sql<Promo[]>`
+		[promo] = (await sql<PromoRow[]>`
 			UPDATE promos
 			SET ${sql(updates)}, updated = now()
 			WHERE id = ${id}

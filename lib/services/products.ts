@@ -39,23 +39,28 @@ const productColumns = [
 	'meta'
 ];
 
-const convertPriceToNumber = (p: Record<string, unknown>) => ({...p, ...(typeof p.price === 'string' ? {price: Number(p.price)} : {})});
+const convertPriceToNumber = (p: ProductRow): Product => ({...p, price: Number(p.price)});
 
 type ProductType = 'ticket' | 'upgrade' | 'bundle-ticket' | 'accomodation';
-type AdmissionTier = 'general' | 'vip' | 'sponsor' | 'stachepass';
 export type Product = {
 	id: string;
+	status?: string;
 	price: number;
 	name: string;
 	description: string;
 	type: ProductType;
 	maxQuantity: number | null;
-	eventId: string;
-	admissionTier: string;
-	targetProductId: string;
-	promo: boolean;
+	eventId?: string;
+	admissionTier?: string;
+	targetProductId?: string;
+	promo?: boolean;
+	created?: Date;
+	updated?: Date;
+	updatedBy?: string | null;
 	meta: Record<string, unknown>;
 };
+
+type ProductRow = Omit<Product, 'price'> & { price: string };
 
 export async function createProduct({ price, name, description, type, maxQuantity, eventId, admissionTier, targetProductId, promo, meta }: Omit<Product, 'id'>) {
 	if(!name || !description || !type) throw new ProductsServiceError('Missing product data', 'INVALID');
@@ -102,7 +107,7 @@ export async function createProduct({ price, name, description, type, maxQuantit
 	}
 
 	try {
-		const [createdProduct] = (await sql`
+		const [createdProduct] = (await sql<ProductRow[]>`
 			INSERT INTO products ${sql(product)}
 			RETURNING ${sql(productColumns)}
 		`).map(convertPriceToNumber);
@@ -115,7 +120,7 @@ export async function createProduct({ price, name, description, type, maxQuantit
 
 export async function getProducts({eventId, type}: {eventId?: string; type?: string} = {}) {
 	try {
-		const products = await sql`
+		const products = await sql<ProductRow[]>`
 			SELECT ${sql(productColumns)}
 			FROM products
 			WHERE true
@@ -132,7 +137,7 @@ export async function getProducts({eventId, type}: {eventId?: string; type?: str
 export async function getProduct(id: string) {
 	let product;
 	try {
-		[product] = (await sql`
+		[product] = (await sql<ProductRow[]>`
 			SELECT ${sql(productColumns)}
 			FROM products
 			WHERE id = ${id}
@@ -164,7 +169,7 @@ export async function updateProduct(id: string, updates: Record<string, unknown>
 
 	let product;
 	try {
-		[product] = (await sql`
+		[product] = (await sql<ProductRow[]>`
 			UPDATE products
 			SET ${sql(updates)}, updated = now()
 			WHERE id = ${id}

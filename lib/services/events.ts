@@ -7,7 +7,10 @@ import { sql } from '../utils/db.js';
 import { v4 as uuidV4 } from 'uuid';
 
 class EventsServiceError extends Error {
-	constructor(message = 'An unknown error occured', code = 'UNKNOWN', context) {
+	code: string;
+	context: unknown;
+
+	constructor(message = 'An unknown error occured', code = 'UNKNOWN', context?: unknown) {
 		super(message);
 
 		this.name = this.constructor.name;
@@ -17,6 +20,28 @@ class EventsServiceError extends Error {
 		Error.captureStackTrace(this, this.constructor);
 	}
 }
+
+export type Event = {
+	id: string;
+	name: string;
+	date: Date;
+	status: string;
+	created: Date;
+	updated: Date;
+	openingSales: Date | null;
+	salesEnabled: boolean;
+	maxCapacity: number | null;
+	budget: number | null;
+	alcoholRevenue: number | null;
+	foodRevenue: number | null;
+	meta: Record<string, unknown>;
+};
+
+type EventRow = Omit<Event, 'budget' | 'alcoholRevenue' | 'foodRevenue'> & {
+	budget: string | null;
+	alcoholRevenue: string | null;
+	foodRevenue: string | null;
+};
 
 const eventColumns = [
 	'id',
@@ -34,17 +59,17 @@ const eventColumns = [
 	'meta'
 ];
 
-const convertNumericTypeToNumbers = e => ({
+const convertNumericTypeToNumbers = (e: EventRow): Event => ({
 	...e,
-	...(typeof e.alcoholRevenue === 'string' ? {alcoholRevenue: Number(e.alcoholRevenue)} : {}),
-	...(typeof e.budget === 'string' ? {budget: Number(e.budget)} : {}),
-	...(typeof e.foodRevenue === 'string' ? {foodRevenue: Number(e.foodRevenue)} : {})
+	budget: e.budget !== null ? Number(e.budget) : null,
+	alcoholRevenue: e.alcoholRevenue !== null ? Number(e.alcoholRevenue) : null,
+	foodRevenue: e.foodRevenue !== null ? Number(e.foodRevenue) : null
 });
 
 
-export async function getEvents({ status }) {
+export async function getEvents({ status }: { status?: string } = {}): Promise<Event[]> {
 	try {
-		const events = await sql`
+		const events = await sql<EventRow[]>`
 			SELECT ${sql(eventColumns)}
 			FROM events
 			${status ? sql`WHERE status = ${status}` : sql``}
@@ -56,10 +81,10 @@ export async function getEvents({ status }) {
 	}
 }
 
-export async function getEvent(id) {
-	let event;
+export async function getEvent(id: string): Promise<Event> {
+	let event: Event | undefined;
 	try {
-		[event] = (await sql`
+		[event] = (await sql<EventRow[]>`
 			SELECT ${sql(eventColumns)}
 			FROM events
 			WHERE id = ${id}
@@ -73,7 +98,7 @@ export async function getEvent(id) {
 	return event;
 }
 
-export async function createEvent(newEvent) {
+export async function createEvent(newEvent: Record<string, unknown>): Promise<Event> {
 	for(const u in newEvent) {
 		// Fields whitelist
 		if(![
@@ -103,12 +128,12 @@ export async function createEvent(newEvent) {
 		alcoholRevenue: newEvent.alcoholRevenue,
 		foodRevenue: newEvent.foodRevenue,
 		meta: {
-			...newEvent.meta
+			...newEvent.meta as Record<string, unknown>
 		}
 	};
 
 	try {
-		const [createdEvent] = (await sql`
+		const [createdEvent] = (await sql<EventRow[]>`
 			INSERT INTO events ${sql(event)}
 			RETURNING ${sql(eventColumns)}
 		`).map(convertNumericTypeToNumbers);
@@ -119,7 +144,7 @@ export async function createEvent(newEvent) {
 	}
 }
 
-export async function updateEvent(id, updates) {
+export async function updateEvent(id: string, updates: Record<string, unknown>): Promise<Event> {
 	for(const u in updates) {
 		// Update whitelist
 		if(![
@@ -139,9 +164,9 @@ export async function updateEvent(id, updates) {
 
 	if(Object.keys(updates).length === 1 && updates.updatedBy) throw new EventsServiceError('Invalid event data', 'INVALID');
 
-	let event;
+	let event: Event | undefined;
 	try {
-		[event] = (await sql`
+		[event] = (await sql<EventRow[]>`
 			UPDATE events
 			SET ${sql(updates)}, updated = now()
 			WHERE id = ${id}
@@ -156,11 +181,33 @@ export async function updateEvent(id, updates) {
 	return event;
 }
 
+type EventSettingsProduct = {
+	id: string;
+	name: string;
+	description: string;
+	price: string;
+	status: string;
+	eventId: string;
+	admissionTier: string;
+	type: string;
+	meta: Record<string, unknown>;
+};
+
+type EventSettings = {
+	id: string;
+	name: string;
+	date: Date;
+	openingSales: Date | null;
+	salesEnabled: boolean;
+	meta: Record<string, unknown>;
+	products: EventSettingsProduct[];
+};
+
 // !!! THIS GETS EXPOSED PUBLICLY
-export async function getEventSettings(id) {
-	let event;
+export async function getEventSettings(id: string): Promise<EventSettings> {
+	let event: EventSettings | undefined;
 	try {
-		[event] = await sql`
+		[event] = await sql<EventSettings[]>`
 			SELECT
 				e.id,
 				e.name,
@@ -201,9 +248,29 @@ export async function getEventSettings(id) {
 	return event;
 }
 
-export async function getEventSummary(id) {
+type EventSummaryRow = {
+	eventId: string;
+	totalGuests: string;
+	totalPaidGuests: string;
+	totalCompedGuests: string;
+	totalVipGuests: string;
+	guestsToday: string;
+	checkedIn: string;
+};
+
+type EventSummary = {
+	eventId: string;
+	totalGuests: number;
+	totalPaidGuests: number;
+	totalCompedGuests: number;
+	totalVipGuests: number;
+	guestsToday: number;
+	checkedIn: number;
+};
+
+export async function getEventSummary(id: string): Promise<EventSummary> {
 	try {
-		const [summary] = (await sql`
+		const [summary] = (await sql<EventSummaryRow[]>`
 			SELECT
 				e.id as event_id,
 				count(g.id) FILTER (WHERE g.status <> 'archived') as total_guests,
@@ -220,7 +287,7 @@ export async function getEventSummary(id) {
 				ON g.event_id = e.id
 			WHERE e.id = ${id}
 			GROUP BY e.id
-		`).map(s => ({
+		`).map((s): EventSummary => ({
 			...s,
 			totalGuests: Number(s.totalGuests),
 			totalPaidGuests: Number(s.totalPaidGuests),
@@ -236,9 +303,35 @@ export async function getEventSummary(id) {
 	}
 }
 
-export async function getEventExtendedStats(id) {
+type EventExtendedStatsRow = {
+	eventId: string;
+	eventBudget: string | null;
+	eventMaxCapacity: number | null;
+	alcoholRevenue: string | null;
+	foodRevenue: string | null;
+	salesTiers: { name: string; quantity: string; price: string }[];
+	totalRevenue: string | null;
+	totalPromoRevenue: string | null;
+	revenueToday: string;
+	promoRevenueToday: string;
+};
+
+type EventExtendedStats = {
+	eventId: string;
+	eventBudget: number;
+	eventMaxCapacity: number | null;
+	alcoholRevenue: number;
+	foodRevenue: number;
+	salesTiers: { name: string; quantity: string; price: string }[];
+	totalRevenue: number;
+	totalPromoRevenue: number;
+	revenueToday: number;
+	promoRevenueToday: number;
+};
+
+export async function getEventExtendedStats(id: string): Promise<EventExtendedStats> {
 	try {
-		const [extendedStats] = (await sql`
+		const [extendedStats] = (await sql<EventExtendedStatsRow[]>`
 			WITH ProductAggregation AS (
 				SELECT
 					p.event_id,
@@ -308,7 +401,7 @@ export async function getEventExtendedStats(id) {
 			alcoholRevenue,
 			foodRevenue,
 			...rest
-		}) => ({
+		}): EventExtendedStats => ({
 			...rest,
 			revenueToday: Number(revenueToday),
 			promoRevenueToday: Number(promoRevenueToday),
@@ -325,9 +418,9 @@ export async function getEventExtendedStats(id) {
 	}
 }
 
-export async function getEventDailyTickets(id: string) {
+export async function getEventDailyTickets(id: string): Promise<{ date: Date; tickets: number }[]> {
 	try {
-		const chart = (await sql`
+		const chart = (await sql<{ date: Date; tickets: string }[]>`
 			SELECT
 				(o.created AT TIME ZONE 'UTC' AT TIME ZONE 'America/Los_Angeles')::DATE AS date,
 				SUM(oi.quantity) as tickets
@@ -351,7 +444,7 @@ export async function getEventDailyTickets(id: string) {
 	}
 }
 
-export async function getOpeningSales(id: string) {
+export async function getOpeningSales(id: string): Promise<{ minuteCreated: string; tickets: number }[]> {
 	try {
 		const chart = (await sql<{minuteCreated: string; tickets: string}[]>`
 			SELECT
@@ -381,7 +474,7 @@ export async function getOpeningSales(id: string) {
 	}
 }
 
-export async function getEventCheckins(id: string) {
+export async function getEventCheckins(id: string): Promise<{ minuteCheckedIn: string; checkins: number }[]> {
 	try {
 		const chart = (await sql<{minuteCheckedIn: string; checkins: string}[]>`
 			SELECT

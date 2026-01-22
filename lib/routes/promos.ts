@@ -2,6 +2,7 @@ import Router from '@koa/router';
 import { authorizeUser, requiresPermission } from '../middleware/auth.js';
 import { createPromo, getPromos, getPromo, updatePromo } from '../services/promos.js';
 import { getProduct } from '../services/products.js';
+import { isRecordLike } from '../utils/type-guards.js';
 
 const promosRouter = new Router({
 	prefix: '/promos'
@@ -18,6 +19,8 @@ promosRouter
 		}
 	})
 	.post('/', authorizeUser, requiresPermission('write'), async ctx => {
+		if(!isRecordLike(ctx.request.body)) throw ctx.throw(400);
+
 		try {
 			const promo = await createPromo({...ctx.request.body, createdBy: ctx.state.user.id});
 

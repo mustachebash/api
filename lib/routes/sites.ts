@@ -1,5 +1,6 @@
 import Router from '@koa/router';
 import { upsertEmailSubscriber } from '../services/email.js';
+import { isRecordLike } from '../utils/type-guards.js';
 
 // TODO: make this configurable at some point
 const EMAIL_LIST_ID = '90392ecd5e';
@@ -11,6 +12,7 @@ const sitesRouter = new Router({
 // Keeping this unti the front end is updated to hit a different route
 sitesRouter
 	.post('/:id/mailing-list', async ctx => {
+		if(!isRecordLike(ctx.request.body)) throw ctx.throw(400);
 		if(!ctx.request.body.email || !ctx.request.body.firstName || !ctx.request.body.lastName) throw ctx.throw(400);
 
 		try {

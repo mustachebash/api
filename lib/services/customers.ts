@@ -10,7 +10,7 @@ export class CustomerServiceError extends Error {
 	code: string;
 	context?: unknown;
 
-	constructor(message = 'An unknown error occured', code = 'UNKNOWN', context) {
+	constructor(message = 'An unknown error occured', code = 'UNKNOWN', context?: unknown) {
 		super(message);
 
 		this.name = this.constructor.name;
@@ -20,6 +20,17 @@ export class CustomerServiceError extends Error {
 		Error.captureStackTrace(this, this.constructor);
 	}
 }
+
+export type Customer = {
+	id: string;
+	email: string;
+	firstName: string;
+	lastName: string;
+	created: Date;
+	updated: Date;
+	updatedBy: string | null;
+	meta: Record<string, unknown>;
+};
 
 const customerColumns = [
 	'id',
@@ -32,8 +43,14 @@ const customerColumns = [
 	'meta'
 ];
 
+type CustomerInput = Record<string, unknown> & {
+	firstName?: string;
+	lastName?: string;
+	email?: string;
+	meta?: Record<string, unknown>;
+};
 
-export async function createCustomer({ firstName, lastName, email, meta }) {
+export async function createCustomer({ firstName, lastName, email, meta }: CustomerInput) {
 	if(!firstName || !lastName || !email) throw new CustomerServiceError('Missing customer data', 'INVALID');
 	if(!/.+@.+\..{2,}/.test(email)) throw new CustomerServiceError('Invalid email', 'INVALID');
 
@@ -48,10 +65,10 @@ export async function createCustomer({ firstName, lastName, email, meta }) {
 	};
 
 	try {
-		const [createdCustomer] = (await sql`
+		const [createdCustomer] = await sql<Customer[]>`
 			INSERT INTO customers ${sql(customer)}
 			RETURNING ${sql(customerColumns)}
-		`);
+		`;
 
 		return createdCustomer;
 	} catch(e) {
@@ -59,9 +76,9 @@ export async function createCustomer({ firstName, lastName, email, meta }) {
 	}
 }
 
-export async function getCustomers() {
+export async function getCustomers(_options?: Record<string, unknown>): Promise<Customer[]> {
 	try {
-		const customers = await sql`
+		const customers = await sql<Customer[]>`
 			SELECT ${sql(customerColumns)}
 			FROM customers
 		`;
@@ -72,14 +89,14 @@ export async function getCustomers() {
 	}
 }
 
-export async function getCustomer(id) {
-	let customer;
+export async function getCustomer(id: string): Promise<Customer> {
+	let customer: Customer | undefined;
 	try {
-		[customer] = (await sql`
+		[customer] = await sql<Customer[]>`
 			SELECT ${sql(customerColumns)}
 			FROM customers
 			WHERE id = ${id}
-		`);
+		`;
 	} catch(e) {
 		throw new CustomerServiceError('Could not query customers', 'UNKNOWN', e);
 	}
@@ -89,7 +106,7 @@ export async function getCustomer(id) {
 	return customer;
 }
 
-export async function updateCustomer(id, updates) {
+export async function updateCustomer(id: string, updates: Record<string, unknown>): Promise<Customer> {
 	for(const u in updates) {
 		// Update whitelist
 		if(![
@@ -103,14 +120,14 @@ export async function updateCustomer(id, updates) {
 
 	if(Object.keys(updates).length === 1 && updates.updatedBy) throw new CustomerServiceError('Invalid customer data', 'INVALID');
 
-	let customer;
+	let customer: Customer | undefined;
 	try {
-		[customer] = (await sql`
+		[customer] = await sql<Customer[]>`
 			UPDATE customers
 			SET ${sql(updates)}, updated = now()
 			WHERE id = ${id}
 			RETURNING ${sql(customerColumns)}
-		`);
+		`;
 	} catch(e) {
 		throw new CustomerServiceError('Could not update customer', 'UNKNOWN', e);
 	}

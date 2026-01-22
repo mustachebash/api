@@ -24,6 +24,23 @@ class GuestsServiceError extends Error {
 	}
 }
 
+export type Guest = {
+	id: string;
+	firstName: string;
+	lastName: string;
+	admissionTier: string;
+	created: Date;
+	updated: Date;
+	updatedBy: string | null;
+	createdBy: string | null;
+	createdReason: 'purchase' | 'comp' | 'transfer';
+	status: 'active' | 'checked_in' | 'archived';
+	checkInTime: Date | null;
+	orderId: string | null;
+	eventId: string;
+	meta: Record<string, unknown>;
+};
+
 const guestColumns = [
 	'id',
 	'first_name',
@@ -41,7 +58,18 @@ const guestColumns = [
 	'meta'
 ];
 
-export async function createGuest({ firstName, lastName, createdReason, orderId = null, createdBy = null, eventId, admissionTier, meta }) {
+type GuestInput = {
+	firstName: string;
+	lastName: string;
+	createdReason: 'purchase' | 'comp' | 'transfer';
+	orderId?: string | null;
+	createdBy?: string | null;
+	eventId: string;
+	admissionTier: string;
+	meta?: Record<string, unknown>;
+};
+
+export async function createGuest({ firstName, lastName, createdReason, orderId = null, createdBy = null, eventId, admissionTier, meta }: GuestInput): Promise<Guest> {
 	if(!firstName || !lastName || !eventId || !admissionTier || !createdReason || (orderId === null && createdReason === 'purchase')) throw new GuestsServiceError('Missing guest data', 'INVALID');
 
 	const guest = {
@@ -60,7 +88,7 @@ export async function createGuest({ firstName, lastName, createdReason, orderId 
 	};
 
 	try {
-		const [createdGuest] = await sql`
+		const [createdGuest] = await sql<Guest[]>`
 			INSERT INTO guests ${sql(guest)}
 			RETURNING ${sql(guestColumns)}
 		`;
@@ -71,9 +99,18 @@ export async function createGuest({ firstName, lastName, createdReason, orderId 
 	}
 }
 
-export async function getGuests({ limit, eventId, admissionTier, createdReason, orderBy = 'created', sort = 'desc' }) {
+type GuestQueryOptions = {
+	limit?: number;
+	eventId?: string;
+	admissionTier?: string;
+	createdReason?: string;
+	orderBy?: string;
+	sort?: 'asc' | 'desc';
+};
+
+export async function getGuests({ limit, eventId, admissionTier, createdReason, orderBy = 'created', sort = 'desc' }: GuestQueryOptions = {}): Promise<Guest[]> {
 	try {
-		const guests = await sql`
+		const guests = await sql<Guest[]>`
 			SELECT ${sql(guestColumns)}
 			FROM guests
 			WHERE 1 = 1
@@ -90,10 +127,10 @@ export async function getGuests({ limit, eventId, admissionTier, createdReason, 
 	}
 }
 
-export async function getGuest(id) {
-	let guest;
+export async function getGuest(id: string): Promise<Guest> {
+	let guest: Guest | undefined;
 	try {
-		[guest] = await sql`
+		[guest] = await sql<Guest[]>`
 			SELECT ${sql(guestColumns)}
 			FROM guests
 			WHERE id = ${id}
@@ -107,7 +144,7 @@ export async function getGuest(id) {
 	return guest;
 }
 
-export async function updateGuest(id, updates) {
+export async function updateGuest(id: string, updates: Record<string, unknown>): Promise<Guest> {
 	for(const u in updates) {
 		// Update whitelist
 		if(!['status', 'firstName', 'lastName', 'updatedBy', 'meta', 'admissionTier'].includes(u)) throw new GuestsServiceError('Invalid guest data', 'INVALID');
@@ -129,10 +166,10 @@ export async function updateGuest(id, updates) {
 
 	// Prevent accidental downgrading of a guest below their purchased tier
 	// TODO: this also inadvertantly prevents from upgrading guests that were created by transfers
-	let minimumAdmissionTier;
+	let minimumAdmissionTier: { admissionTier: string } | undefined;
 	if (updates.admissionTier) {
 		try {
-			[minimumAdmissionTier] = await sql`
+			[minimumAdmissionTier] = await sql<{ admissionTier: string }[]>`
 				SELECT p.admission_tier
 				FROM guests AS g
 				LEFT JOIN order_items AS oi
@@ -158,9 +195,9 @@ export async function updateGuest(id, updates) {
 		}
 	}
 
-	let updatedGuest;
+	let updatedGuest: Guest | undefined;
 	try {
-		[updatedGuest] = await sql`
+		[updatedGuest] = await sql<Guest[]>`
 			UPDATE guests
 			SET ${sql(updates)}, updated = now()
 			WHERE id = ${id}
@@ -175,10 +212,10 @@ export async function updateGuest(id, updates) {
 	return updatedGuest;
 }
 
-export async function archiveGuest(id, updatedBy) {
-	let guest;
+export async function archiveGuest(id: string, updatedBy: string): Promise<Guest> {
+	let guest: Guest | undefined;
 	try {
-		[guest] = await sql`
+		[guest] = await sql<Guest[]>`
 			UPDATE guests
 			SET status = 'archived', updated = now(), updated_by = ${updatedBy}
 			WHERE id = ${id}

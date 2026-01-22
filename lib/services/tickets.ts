@@ -23,6 +23,60 @@ export class TicketsServiceError extends Error {
 	}
 }
 
+export type Ticket = {
+	id: string;
+	admissionTier: string;
+	eventId: string;
+	eventName: string;
+	eventDate: Date;
+	status: string;
+	firstName: string;
+	lastName: string;
+	qrPayload: string;
+};
+
+export type CustomerTicket = {
+	id: string;
+	customerId: string;
+	orderId: string;
+	orderCreated: Date;
+	admissionTier: string;
+	status: string;
+	checkInTime: Date | null;
+	eventId: string;
+	eventName: string;
+	eventDate: Date;
+	upgradeProductId: string | null;
+	upgradePrice: number | null;
+	upgradeName: string | null;
+	qrPayload: string;
+};
+
+export type CustomerAccommodation = {
+	customerId: string;
+	orderId: string;
+	orderCreated: Date;
+	productName: string;
+	eventId: string;
+	eventName: string;
+	eventDate: Date;
+};
+
+export type TicketInspection = {
+	id: string;
+	firstName: string;
+	lastName: string;
+	status: string;
+	orderId: string;
+	createdReason?: string;
+	admissionTier: string;
+	checkInTime: Date | null;
+	eventId: string;
+	eventName: string;
+	eventDate: Date;
+	eventStatus: string;
+};
+
 // For now, ticket "seed" is fine to be used as plaintext since we can use it as
 // a revokable identifier, but are not rolling "live" tickets this year
 // ie, we aren't seeding a TOTP with it, and therefore it does not need to be a secret value.
@@ -31,7 +85,7 @@ function generateQRPayload(ticketSeed: string) {
 	return ticketSeed;
 }
 
-export async function getOrderTickets(orderId: string) {
+export async function getOrderTickets(orderId: string): Promise<Ticket[]> {
 	let guests;
 	try {
 		guests = await sql`
@@ -75,7 +129,7 @@ export async function getOrderTickets(orderId: string) {
 	return tickets;
 }
 
-export async function getCustomerActiveTicketsByOrderId(orderId: string) {
+export async function getCustomerActiveTicketsByOrderId(orderId: string): Promise<CustomerTicket[]> {
 	let rows;
 	try {
 		rows = await sql`
@@ -151,7 +205,7 @@ export async function getCustomerActiveTicketsByOrderId(orderId: string) {
 	}
 }
 
-export async function getCustomerActiveAccommodationsByOrderId(orderId: string) {
+export async function getCustomerActiveAccommodationsByOrderId(orderId: string): Promise<CustomerAccommodation[]> {
 	let rows;
 	try {
 		rows = await sql`
@@ -357,11 +411,11 @@ export async function transferTickets(
 	};
 }
 
-export async function inspectTicket(ticketToken: string) {
-	let guest;
+export async function inspectTicket(ticketToken: string): Promise<TicketInspection> {
+	let guest: TicketInspection | undefined;
 	// For now, this is happening directly with ticket seeds
 	try {
-		[guest] = await sql`
+		[guest] = await sql<TicketInspection[]>`
 			SELECT
 				g.id,
 				g.first_name,
@@ -389,11 +443,11 @@ export async function inspectTicket(ticketToken: string) {
 	return guest;
 }
 
-export async function checkInWithTicket(ticketToken: string, scannedBy: string) {
-	let guest;
+export async function checkInWithTicket(ticketToken: string, scannedBy: string): Promise<TicketInspection> {
+	let guest: TicketInspection | undefined;
 	// For now, this is happening directly with ticket seeds
 	try {
-		[guest] = await sql`
+		[guest] = await sql<TicketInspection[]>`
 			SELECT
 				g.id,
 				g.first_name,

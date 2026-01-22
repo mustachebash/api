@@ -14,7 +14,10 @@ const gateway = new braintree.BraintreeGateway({
 });
 
 class TransactionsServiceError extends Error {
-	constructor(message = 'An unknown error occured', code = 'UNKNOWN', context) {
+	code: string;
+	context: unknown;
+
+	constructor(message = 'An unknown error occured', code = 'UNKNOWN', context?: unknown) {
 		super(message);
 
 		this.name = this.constructor.name;
@@ -24,6 +27,21 @@ class TransactionsServiceError extends Error {
 		Error.captureStackTrace(this, this.constructor);
 	}
 }
+
+export type Transaction = {
+	id: string;
+	amount: number | null;
+	created: Date;
+	type: 'sale' | 'refund' | 'void';
+	orderId: string;
+	processorTransactionId: string;
+	processorCreatedAt: Date;
+	processor: string;
+	parentTransactionId: string | null;
+	meta: Record<string, unknown>;
+};
+
+type TransactionRow = Omit<Transaction, 'amount'> & { amount: string | null };
 
 const transactionColumns = [
 	'id',
@@ -38,11 +56,14 @@ const transactionColumns = [
 	'meta'
 ];
 
-const convertAmountToNumber = o => ({...o, ...(typeof o.amount === 'string' ? {amount: Number(o.amount)} : {})});
+const convertAmountToNumber = (t: TransactionRow): Transaction => ({
+	...t,
+	amount: t.amount !== null ? Number(t.amount) : null
+});
 
-export async function getTransactions({ type, orderId, orderBy = 'created', limit, sort = 'desc' }) {
+export async function getTransactions({ type, orderId, orderBy = 'created', limit, sort = 'desc' }: { type?: string; orderId?: string; orderBy?: string; limit?: number; sort?: 'asc' | 'desc' } = {}): Promise<Transaction[]> {
 	try {
-		const transactions = await sql`
+		const transactions = await sql<TransactionRow[]>`
 			SELECT ${sql(transactionColumns)}
 			FROM transactions
 			WHERE 1 = 1
@@ -58,10 +79,10 @@ export async function getTransactions({ type, orderId, orderBy = 'created', limi
 	}
 }
 
-export async function getTransaction(id) {
-	let transaction;
+export async function getTransaction(id: string): Promise<Transaction> {
+	let transaction: Transaction | undefined;
 	try {
-		[transaction] = (await sql`
+		[transaction] = (await sql<TransactionRow[]>`
 			SELECT ${sql(transactionColumns)}
 			FROM transactions
 			WHERE id = ${id}
@@ -75,10 +96,10 @@ export async function getTransaction(id) {
 	return transaction;
 }
 
-export async function getTransactionProcessorDetails(id) {
-	let transaction;
+export async function getTransactionProcessorDetails(id: string) {
+	let transaction: { processorTransactionId: string } | undefined;
 	try {
-		[transaction] = await sql`
+		[transaction] = await sql<{ processorTransactionId: string }[]>`
 			SELECT processor_transaction_id
 			FROM transactions
 			WHERE id = ${id}

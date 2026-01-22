@@ -4,6 +4,7 @@ import { getOrderTickets, transferTickets } from '../services/tickets.js';
 import { createOrder, getOrders, getOrder, getOrderTransfers, refundOrder, generateOrderToken } from '../services/orders.js';
 import { sendReceipt, upsertEmailSubscriber, sendTransfereeConfirmation, sendUpgradeReceipt } from '../services/email.js';
 import { getTransactions } from '../services/transactions.js';
+import { isRecordLike } from '../utils/type-guards.js';
 
 // TODO: make this configurable at some point
 const EMAIL_LIST = '90392ecd5e',
@@ -24,7 +25,7 @@ ordersRouter
 		}
 	})
 	.post('/', async ctx => {
-		if(!ctx.request.body) throw ctx.throw(400);
+		if(!isRecordLike(ctx.request.body)) throw ctx.throw(400);
 
 		try {
 			const { order, transaction, customer } = await createOrder({...ctx.request.body}),
@@ -136,7 +137,7 @@ ordersRouter
 		}
 	})
 	.post('/:id/transfers', authorizeUser, requiresPermission('write'), async ctx => {
-		if(!ctx.request.body) throw ctx.throw(400);
+		if(!isRecordLike(ctx.request.body)) throw ctx.throw(400);
 
 		try {
 			const { transferee, order } = await transferTickets(ctx.params.id, ctx.request.body, ctx.state.user.id),
