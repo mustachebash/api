@@ -9,7 +9,7 @@
 	"scripts": {
 		"dev": "tsx watch --clear-screen=false lib/index.ts",
 		"build": "rm -rf dist && tsc",
-		"test": "eslint . && tsc --noEmit",
+		"test": "eslint . && prettier --check . && tsc --noEmit",
 		"start": "node .",
 		"check:updates": "ncu",
 		"update:packages": "ncu -u"

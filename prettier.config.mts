@@ -7,12 +7,6 @@ export default {
 	arrowParens: 'avoid',
 	overrides: [
 		{
-			files: '*.astro',
-			options: {
-				parser: 'astro'
-			}
-		},
-		{
 			files: ['*.yml', '*.yaml'],
 			options: {
 				tabWidth: 2,

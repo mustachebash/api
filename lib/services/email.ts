@@ -14,7 +14,6 @@ const mailgun = MailgunJs({ apiKey: config.mailgun.apiKey, domain: config.mailgu
 const mailchimp = new MailChimpClient(config.mailchimp.apiKey),
 	md5 = (string: string) => crypto.createHash('md5').update(string).digest('hex');
 
-/* eslint-disable max-len */
 /**
  * This will upsert a member into a list with first and last names, subscribe by default (but leave existing statuses in place)
  * then apply all tags listed

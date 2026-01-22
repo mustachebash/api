@@ -19,7 +19,7 @@ export async function authorizeUser(ctx: AppContext, next: Next) {
 			role
 		};
 	} catch (e) {
-		throw ctx.throw(401);
+		throw ctx.throw(401, e, { expose: false });
 	}
 
 	await next();

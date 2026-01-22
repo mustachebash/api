@@ -67,6 +67,7 @@ export async function createCustomer({ firstName, lastName, email, meta }: Custo
 	}
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function getCustomers(_options?: Record<string, unknown>): Promise<Customer[]> {
 	try {
 		const customers = await sql<Customer[]>`

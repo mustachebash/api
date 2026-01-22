@@ -191,7 +191,7 @@ export async function refreshAccessToken(refreshToken: string, { userAgent, ip }
 	try {
 		({ sub, jti } = validateRefreshToken(refreshToken));
 	} catch (e) {
-		throw new AuthServiceError('Invalid refresh token', 'UNAUTHORIZED');
+		throw new AuthServiceError('Invalid refresh token', 'UNAUTHORIZED', e);
 	}
 
 	let user;

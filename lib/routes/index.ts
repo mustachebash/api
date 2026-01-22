@@ -7,7 +7,7 @@ import { authorizeUser, requiresPermission } from '../middleware/auth.js';
 import { authenticateGoogleUser, refreshAccessToken } from '../services/auth.js';
 import { getEventSettings } from '../services/events.js';
 import { generateOrderToken, validateOrderToken } from '../services/orders.js';
-import { checkInWithTicket, getCustomerActiveTicketsByOrderId, getCustomerActiveAccommodationsByOrderId, inspectTicket, transferTickets, TicketsServiceError } from '../services/tickets.js';
+import { checkInWithTicket, getCustomerActiveTicketsByOrderId, getCustomerActiveAccommodationsByOrderId, inspectTicket, transferTickets } from '../services/tickets.js';
 import customersRouter from './customers.js';
 import ordersRouter from './orders.js';
 import transactionsRouter from './transactions.js';
@@ -17,7 +17,7 @@ import productsRouter from './products.js';
 import promosRouter from './promos.js';
 import guestsRouter from './guests.js';
 import usersRouter from './users.js';
-import { getCustomer, CustomerServiceError } from '../services/customers.js';
+import { getCustomer } from '../services/customers.js';
 import { sendTransfereeConfirmation, upsertEmailSubscriber } from '../services/email.js';
 import { AppContext } from '../index.js';
 

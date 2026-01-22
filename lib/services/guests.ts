@@ -4,8 +4,6 @@
  * @type {Object}
  */
 import crypto from 'crypto';
-import { toDataURL as generateQRDataURI } from 'qrcode';
-import jwt from 'jsonwebtoken';
 import { v4 as uuidV4 } from 'uuid';
 import { sql } from '../utils/db.js';
 
