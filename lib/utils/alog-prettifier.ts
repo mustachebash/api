@@ -48,11 +48,7 @@ export default async () => {
 		additionalKeys.forEach(key => (logLine = `${logLine}\n  ${key}: ${typeof rest[key] === 'string' ? rest[key] : JSON.stringify(rest[key])}`));
 
 		if (err) {
-			const {
-				code,
-				context: { stack: contextStack = '', ...context } = {},
-				stack
-			} = err as { code: string; context: Record<string, unknown> & { stack?: string }; stack: string };
+			const { code, context: { stack: contextStack = '', ...context } = {}, stack } = err as { code: string; context: Record<string, unknown> & { stack?: string }; stack: string };
 			logLine = `${logLine}\n  ${code ? `err.code: ${chalk.bold(code)}\n  ` : ''}${context ? `err.context: ${JSON.stringify(context)}\n  ` : ''}${
 				contextStack ? `err.context.stack: ${contextStack}\n` : ''
 			}${stack}`;

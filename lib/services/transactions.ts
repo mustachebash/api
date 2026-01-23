@@ -43,25 +43,20 @@ export type Transaction = {
 
 type TransactionRow = Omit<Transaction, 'amount'> & { amount: string | null };
 
-const transactionColumns = [
-	'id',
-	'amount',
-	'created',
-	'type',
-	'order_id',
-	'processor_transaction_id',
-	'processor_created_at',
-	'processor',
-	'parent_transaction_id',
-	'meta'
-];
+const transactionColumns = ['id', 'amount', 'created', 'type', 'order_id', 'processor_transaction_id', 'processor_created_at', 'processor', 'parent_transaction_id', 'meta'];
 
 const convertAmountToNumber = (t: TransactionRow): Transaction => ({
 	...t,
 	amount: t.amount !== null ? Number(t.amount) : null
 });
 
-export async function getTransactions({ type, orderId, orderBy = 'created', limit, sort = 'desc' }: { type?: string; orderId?: string; orderBy?: string; limit?: number; sort?: 'asc' | 'desc' } = {}): Promise<Transaction[]> {
+export async function getTransactions({
+	type,
+	orderId,
+	orderBy = 'created',
+	limit,
+	sort = 'desc'
+}: { type?: string; orderId?: string; orderBy?: string; limit?: number; sort?: 'asc' | 'desc' } = {}): Promise<Transaction[]> {
 	try {
 		const transactions = await sql<TransactionRow[]>`
 			SELECT ${sql(transactionColumns)}
@@ -70,11 +65,11 @@ export async function getTransactions({ type, orderId, orderBy = 'created', limi
 			${orderId ? sql`AND order_id = ${orderId}` : sql``}
 			${type ? sql`AND type = ${type}` : sql``}
 			ORDER BY ${sql(orderBy)} ${sort === 'desc' ? sql`desc` : sql`asc`}
-			${(limit && Number(limit)) ? sql`LIMIT ${limit}` : sql``}
+			${limit && Number(limit) ? sql`LIMIT ${limit}` : sql``}
 		`;
 
 		return transactions.map(convertAmountToNumber);
-	} catch(e) {
+	} catch (e) {
 		throw new TransactionsServiceError('Could not query transactions', 'UNKNOWN', e);
 	}
 }
@@ -82,16 +77,18 @@ export async function getTransactions({ type, orderId, orderBy = 'created', limi
 export async function getTransaction(id: string): Promise<Transaction> {
 	let transaction: Transaction | undefined;
 	try {
-		[transaction] = (await sql<TransactionRow[]>`
+		[transaction] = (
+			await sql<TransactionRow[]>`
 			SELECT ${sql(transactionColumns)}
 			FROM transactions
 			WHERE id = ${id}
-		`).map(convertAmountToNumber);
-	} catch(e) {
+		`
+		).map(convertAmountToNumber);
+	} catch (e) {
 		throw new TransactionsServiceError('Could not query transaction', 'UNKNOWN', e);
 	}
 
-	if(!transaction) throw new TransactionsServiceError('Transaction not found', 'NOT_FOUND');
+	if (!transaction) throw new TransactionsServiceError('Transaction not found', 'NOT_FOUND');
 
 	return transaction;
 }
@@ -104,15 +101,15 @@ export async function getTransactionProcessorDetails(id: string) {
 			FROM transactions
 			WHERE id = ${id}
 		`;
-	} catch(e) {
+	} catch (e) {
 		throw new TransactionsServiceError('Could not query transaction', 'UNKNOWN', e);
 	}
 
-	if(!transaction) throw new TransactionsServiceError('Transaction not found', 'NOT_FOUND');
+	if (!transaction) throw new TransactionsServiceError('Transaction not found', 'NOT_FOUND');
 
 	try {
-		return {...await gateway.transaction.find(transaction.processorTransactionId), merchantId: btConfig.merchantId};
-	} catch(e) {
+		return { ...(await gateway.transaction.find(transaction.processorTransactionId)), merchantId: btConfig.merchantId };
+	} catch (e) {
 		throw new TransactionsServiceError('Processor transaction not found', 'BRAINTREE_ERROR', e);
 	}
 }

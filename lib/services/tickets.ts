@@ -104,7 +104,7 @@ export async function getOrderTickets(orderId: string): Promise<Ticket[]> {
 				ON e.id = g.event_id
 			WHERE g.order_id = ${orderId}
 		`;
-	} catch(e) {
+	} catch (e) {
 		throw new TicketsServiceError('Could not query guests for order', 'UNKNOWN', e);
 	}
 
@@ -200,7 +200,7 @@ export async function getCustomerActiveTicketsByOrderId(orderId: string): Promis
 		}
 
 		return tickets;
-	} catch(e) {
+	} catch (e) {
 		throw new TicketsServiceError('Could not query orders for customer', 'UNKNOWN', e);
 	}
 }
@@ -249,7 +249,7 @@ export async function getCustomerActiveAccommodationsByOrderId(orderId: string):
 		}
 
 		return accomodations;
-	} catch(e) {
+	} catch (e) {
 		throw new TicketsServiceError('Could not query orders for customer', 'UNKNOWN', e);
 	}
 }
@@ -286,22 +286,22 @@ export async function transferTickets(
 		guestIds: string[];
 	}
 ) {
-	if(!transferee) throw new TicketsServiceError('No transferee specified', 'INVALID');
-	if(!guestIds?.length) throw new TicketsServiceError('No tickets specified', 'INVALID');
+	if (!transferee) throw new TicketsServiceError('No transferee specified', 'INVALID');
+	if (!guestIds?.length) throw new TicketsServiceError('No tickets specified', 'INVALID');
 
 	let order;
 	try {
-		[order] = (await sql`
+		[order] = await sql`
 			SELECT *
 			FROM orders
 			WHERE id = ${orderId}
-		`);
-	} catch(e) {
+		`;
+	} catch (e) {
 		throw new TicketsServiceError('Could not query orders', 'UNKNOWN', e);
 	}
 
-	if(!order) throw new TicketsServiceError('Order not found', 'NOT_FOUND');
-	if(order.status === 'canceled') throw new TicketsServiceError('Cannot transfer this order', 'NOT_PERMITTED');
+	if (!order) throw new TicketsServiceError('Order not found', 'NOT_FOUND');
+	if (order.status === 'canceled') throw new TicketsServiceError('Cannot transfer this order', 'NOT_PERMITTED');
 
 	let originalGuests;
 	try {
@@ -311,12 +311,12 @@ export async function transferTickets(
 			WHERE order_id = ${orderId}
 			AND id IN ${sql(guestIds)}
 		`;
-	} catch(e) {
+	} catch (e) {
 		throw new TicketsServiceError('Could not query guests for order', 'UNKNOWN', e);
 	}
 
-	if(!originalGuests.length) throw new TicketsServiceError('Guests not found', 'NOT_FOUND');
-	if(originalGuests.some(g => g.status === 'archived')) throw new TicketsServiceError('Cannot transfer archived guests', 'NOT_PERMITTED');
+	if (!originalGuests.length) throw new TicketsServiceError('Guests not found', 'NOT_FOUND');
+	if (originalGuests.some(g => g.status === 'archived')) throw new TicketsServiceError('Cannot transfer archived guests', 'NOT_PERMITTED');
 
 	// Find or insert a customer record for the transferee
 	const normalizedEmail = transferee.email.toLowerCase().trim();
@@ -328,7 +328,7 @@ export async function transferTickets(
 			WHERE email = ${normalizedEmail}
 		`;
 
-		if(!dbCustomer) {
+		if (!dbCustomer) {
 			const newCustomer = {
 				id: uuidV4(),
 				firstName: transferee.firstName.trim(),
@@ -341,7 +341,7 @@ export async function transferTickets(
 				RETURNING *
 			`;
 		}
-	} catch(e) {
+	} catch (e) {
 		throw new TicketsServiceError('Could not query or insert customer', 'UNKNOWN', e);
 	}
 
@@ -361,7 +361,7 @@ export async function transferTickets(
 		await sql`
 			INSERT INTO orders ${sql(transfereeOrder)}
 		`;
-	} catch(e) {
+	} catch (e) {
 		throw new TicketsServiceError('Could not insert transfer order', 'UNKNOWN', e);
 	}
 
@@ -371,13 +371,13 @@ export async function transferTickets(
 			try {
 				await createGuest({
 					firstName: dbCustomer.firstName,
-					lastName: dbCustomer.lastName  + (j > 0 ? ` Guest ${j}` : ''),
+					lastName: dbCustomer.lastName + (j > 0 ? ` Guest ${j}` : ''),
 					createdReason: 'transfer',
 					eventId: g.eventId,
 					orderId: transfereeOrderId,
 					admissionTier: g.admissionTier
 				});
-			} catch(e) {
+			} catch (e) {
 				log.error(e, 'Error creating guest');
 			}
 		})();
@@ -401,7 +401,7 @@ export async function transferTickets(
 				AND id IN ${sql(guestIds)}
 			`
 		]);
-	} catch(e) {
+	} catch (e) {
 		throw new TicketsServiceError('Order or guest updating failed', 'UNKNOWN', e);
 	}
 
@@ -434,11 +434,11 @@ export async function inspectTicket(ticketToken: string): Promise<TicketInspecti
 				ON g.event_id = e.id
 			WHERE g.ticket_seed = ${ticketToken}
 		`;
-	} catch(e) {
+	} catch (e) {
 		throw new TicketsServiceError('Could not query guests for order', 'UNKNOWN', e);
 	}
 
-	if(!guest) throw new TicketsServiceError('Ticket not found for guest', 'TICKET_NOT_FOUND');
+	if (!guest) throw new TicketsServiceError('Ticket not found for guest', 'TICKET_NOT_FOUND');
 
 	return guest;
 }
@@ -465,21 +465,20 @@ export async function checkInWithTicket(ticketToken: string, scannedBy: string):
 				ON g.event_id = e.id
 			WHERE g.ticket_seed = ${ticketToken}
 		`;
-	} catch(e) {
+	} catch (e) {
 		throw new TicketsServiceError('Could not query guests for order', 'UNKNOWN', e);
 	}
 
-	if(!guest) throw new TicketsServiceError('Ticket not found for guest', 'TICKET_NOT_FOUND');
+	if (!guest) throw new TicketsServiceError('Ticket not found for guest', 'TICKET_NOT_FOUND');
 
 	// Guests can't check in more than once
-	if(guest.status === 'checked_in') throw new TicketsServiceError('Guest already checked in', 'GUEST_ALREADY_CHECKED_IN', guest);
+	if (guest.status === 'checked_in') throw new TicketsServiceError('Guest already checked in', 'GUEST_ALREADY_CHECKED_IN', guest);
 	// Both entities must be active to check in
-	if(guest.status !== 'active') throw new TicketsServiceError('Guest no longer active', 'GUEST_NOT_ACTIVE', guest);
-	if(guest.eventStatus !== 'active') throw new TicketsServiceError('Event no longer active', 'EVENT_NOT_ACTIVE', guest);
-
+	if (guest.status !== 'active') throw new TicketsServiceError('Guest no longer active', 'GUEST_NOT_ACTIVE', guest);
+	if (guest.eventStatus !== 'active') throw new TicketsServiceError('Event no longer active', 'EVENT_NOT_ACTIVE', guest);
 
 	// Guests can't check in earlier than 1 hour before the event starts
-	if((new Date()).getTime() < (new Date(guest.eventDate)).getTime() - (1000 * 60 * 60)) throw new TicketsServiceError('Event has not started yet', 'EVENT_NOT_STARTED', guest);
+	if (new Date().getTime() < new Date(guest.eventDate).getTime() - 1000 * 60 * 60) throw new TicketsServiceError('Event has not started yet', 'EVENT_NOT_STARTED', guest);
 
 	// Ticket and check in is valid - mark guest as checked in
 	try {
@@ -492,7 +491,7 @@ export async function checkInWithTicket(ticketToken: string, scannedBy: string):
 				updated = now()
 			WHERE id = ${guest.id}
 		`;
-	} catch(e) {
+	} catch (e) {
 		throw new TicketsServiceError('Could not update guest', 'UNKNOWN', e);
 	}
 

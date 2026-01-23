@@ -1,8 +1,8 @@
 /**
-* Database Utility
-*
-* @exports a singleton that exposes an encapsulated sql function
-*/
+ * Database Utility
+ *
+ * @exports a singleton that exposes an encapsulated sql function
+ */
 import postgres from 'postgres';
 import { postgres as pgConfig } from '../config.js';
 

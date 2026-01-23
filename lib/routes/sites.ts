@@ -10,18 +10,17 @@ const sitesRouter = new Router({
 });
 
 // Keeping this unti the front end is updated to hit a different route
-sitesRouter
-	.post('/:id/mailing-list', async ctx => {
-		if(!isRecordLike(ctx.request.body)) throw ctx.throw(400);
-		if(!ctx.request.body.email || !ctx.request.body.firstName || !ctx.request.body.lastName) throw ctx.throw(400);
+sitesRouter.post('/:id/mailing-list', async ctx => {
+	if (!isRecordLike(ctx.request.body)) throw ctx.throw(400);
+	if (!ctx.request.body.email || !ctx.request.body.firstName || !ctx.request.body.lastName) throw ctx.throw(400);
 
-		try {
-			await upsertEmailSubscriber(EMAIL_LIST_ID, {...ctx.request.body, tags: [`Site '${ctx.params.id}' Form Opt-In`]});
+	try {
+		await upsertEmailSubscriber(EMAIL_LIST_ID, { ...ctx.request.body, tags: [`Site '${ctx.params.id}' Form Opt-In`] });
 
-			return ctx.status = 204;
-		} catch(e) {
-			throw ctx.throw(e);
-		}
-	});
+		return (ctx.status = 204);
+	} catch (e) {
+		throw ctx.throw(e);
+	}
+});
 
 export default sitesRouter;

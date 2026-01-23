@@ -58,16 +58,7 @@ type OrderWithItems = Order & {
 
 type OrderRowWithItems = Omit<OrderWithItems, 'amount'> & { amount: string };
 
-const orderColumns = [
-	'id',
-	'amount',
-	'created',
-	'customer_id',
-	'promo_id',
-	'parent_order_id',
-	'status',
-	'meta'
-];
+const orderColumns = ['id', 'amount', 'created', 'customer_id', 'promo_id', 'parent_order_id', 'status', 'meta'];
 
 const aggregateOrderItems = sql`
 	ARRAY_AGG(
@@ -78,15 +69,23 @@ const aggregateOrderItems = sql`
 	) as items
 `;
 
-const convertAmountToNumber = <T extends OrderRow | OrderRowWithItems>(o: T): T extends OrderRowWithItems ? OrderWithItems : Order => ({
-	...o,
-	amount: Number(o.amount)
-} as T extends OrderRowWithItems ? OrderWithItems : Order);
+const convertAmountToNumber = <T extends OrderRow | OrderRowWithItems>(o: T): T extends OrderRowWithItems ? OrderWithItems : Order =>
+	({
+		...o,
+		amount: Number(o.amount)
+	}) as T extends OrderRowWithItems ? OrderWithItems : Order;
 
-export async function getOrders({ eventId, productId, status, limit, orderBy = 'created', sort = 'desc' }: { eventId?: string; productId?: string; status?: string; limit?: number; orderBy?: string; sort?: 'asc' | 'desc' } = {}): Promise<OrderWithItems[]> {
+export async function getOrders({
+	eventId,
+	productId,
+	status,
+	limit,
+	orderBy = 'created',
+	sort = 'desc'
+}: { eventId?: string; productId?: string; status?: string; limit?: number; orderBy?: string; sort?: 'asc' | 'desc' } = {}): Promise<OrderWithItems[]> {
 	try {
 		let orders;
-		if(eventId) {
+		if (eventId) {
 			orders = await sql`
 				WITH FilteredOrders AS (
 					SELECT o.id
@@ -113,9 +112,9 @@ export async function getOrders({ eventId, productId, status, limit, orderBy = '
 				${status ? sql`AND o.status = ${status}` : sql``}
 				GROUP BY o.id, customer_email, customer_first_name, customer_last_name
 				ORDER BY ${sql(`o.${orderBy}`)} ${sort === 'desc' ? sql`desc` : sql`asc`}
-				${(limit && Number(limit)) ? sql`LIMIT ${limit}` : sql``}
+				${limit && Number(limit) ? sql`LIMIT ${limit}` : sql``}
 			`;
-		} else if(productId) {
+		} else if (productId) {
 			orders = await sql`
 				WITH FilteredOrders AS (
 					SELECT o.id
@@ -135,7 +134,7 @@ export async function getOrders({ eventId, productId, status, limit, orderBy = '
 				${status ? sql`AND o.status = ${status}` : sql``}
 				GROUP BY o.id
 				ORDER BY ${sql(`o.${orderBy}`)} ${sort === 'desc' ? sql`desc` : sql`asc`}
-				${(limit && Number(limit)) ? sql`LIMIT ${limit}` : sql``}
+				${limit && Number(limit) ? sql`LIMIT ${limit}` : sql``}
 			`;
 		} else {
 			orders = await sql`
@@ -149,13 +148,13 @@ export async function getOrders({ eventId, productId, status, limit, orderBy = '
 				${status ? sql`AND o.status = ${status}` : sql``}
 				GROUP BY o.id
 				ORDER BY ${sql(`o.${orderBy}`)} ${sort === 'desc' ? sql`desc` : sql`asc`}
-				${(limit && Number(limit)) ? sql`LIMIT ${limit}` : sql``}
+				${limit && Number(limit) ? sql`LIMIT ${limit}` : sql``}
 			`;
 		}
 
 		// https://github.com/porsager/postgres#numbers-bigint-numeric
 		return orders.map(convertAmountToNumber);
-	} catch(e) {
+	} catch (e) {
 		throw new OrdersServiceError('Could not query orders', 'UNKNOWN', e);
 	}
 }
@@ -182,7 +181,8 @@ export async function createOrder({ paymentMethodNonce, cart = [], customer = {}
 	// First do some validation
 	if (!cart.length || !paymentMethodNonce || !customer.firstName || !customer.lastName || !customer.email) throw new OrdersServiceError('Invalid payment parameters', 'INVALID');
 
-	const products = (await sql<(Product & {totalSold: string})[]>`
+	const products = (
+		await sql<(Product & { totalSold: string })[]>`
 		SELECT p.*, COALESCE(SUM(oi.quantity), 0) as total_sold
 		FROM products as p
 		LEFT JOIN order_items as oi
@@ -190,53 +190,60 @@ export async function createOrder({ paymentMethodNonce, cart = [], customer = {}
 		WHERE p.id in ${sql(cart.map(i => i.productId))}
 		AND status = 'active'
 		GROUP BY 1
-	`).map(p => ({
+	`
+	).map(p => ({
 		...p,
-		...(typeof p.price === 'string' ? {price: Number(p.price)} : {}),
-		...(typeof p.totalSold === 'string' ? {totalSold: Number(p.totalSold)} : {})
+		...(typeof p.price === 'string' ? { price: Number(p.price) } : {}),
+		...(typeof p.totalSold === 'string' ? { totalSold: Number(p.totalSold) } : {})
 	}));
 
 	// Fetch all matching bundled products - for now it's just tickets
-	const bundledProducts = (await sql<Product[]>`
+	const bundledProducts = (
+		await sql<Product[]>`
 		SELECT p.*
 		FROM products as p
 		WHERE p.type = 'bundle-ticket'
 		AND p.target_product_id in ${sql(products.map(i => i.id))}
 		AND status = 'active'
-	`).map(p => ({
+	`
+	).map(p => ({
 		...p,
-		...(typeof p.price === 'string' ? {price: Number(p.price)} : {})
+		...(typeof p.price === 'string' ? { price: Number(p.price) } : {})
 	}));
 
 	let promo: Promo;
-	if(promoId) {
-		[promo] = (await sql<Promo[]>`
+	if (promoId) {
+		[promo] = (
+			await sql<Promo[]>`
 			SELECT *
 			FROM promos
 			WHERE id = ${promoId}
 			AND status = 'active'
-		`).map(p => ({
+		`
+		).map(p => ({
 			...p,
-			...(typeof p.price === 'string' ? {price: Number(p.price)} : {}),
-			...(typeof p.percentDiscount === 'string' ? {percentDiscount: Number(p.percentDiscount)} : {}),
-			...(typeof p.flatDiscount === 'string' ? {flatDiscount: Number(p.flatDiscount)} : {})
+			...(typeof p.price === 'string' ? { price: Number(p.price) } : {}),
+			...(typeof p.percentDiscount === 'string' ? { percentDiscount: Number(p.percentDiscount) } : {}),
+			...(typeof p.flatDiscount === 'string' ? { flatDiscount: Number(p.flatDiscount) } : {})
 		}));
 
-		const [promoUses] = (await sql<{promoUses: number}[]>`
+		const [promoUses] = (
+			await sql<{ promoUses: number }[]>`
 			SELECT count(id) as promo_uses
 			FROM orders
 			WHERE promo_id = ${promoId}
-		`).map(pu => (pu.promoUses));
+		`
+		).map(pu => pu.promoUses);
 
-		if(!promo) throw new OrdersServiceError('Invalid promo code', 'INVALID');
-		if(typeof promo.maxUses === 'number' && promo.maxUses <= promoUses) throw new OrdersServiceError('Promo code no longer available', 'GONE');
+		if (!promo) throw new OrdersServiceError('Invalid promo code', 'INVALID');
+		if (typeof promo.maxUses === 'number' && promo.maxUses <= promoUses) throw new OrdersServiceError('Promo code no longer available', 'GONE');
 	}
 
 	// targetGuestId is actually what the user sees as a "ticket", so the 1:1 restriction remains valid per upgrade product, however
 	// the API should maybe allow for an array of objects mapping guestIds to upgrade productIds so a user may upgrade multiple tickets at once
 	let targetGuest;
-	if(targetGuestId) {
-		if(products.length > 1 || products[0].type !== 'upgrade') throw new OrdersServiceError('Missing/incorrect Upgrade Product', 'INVALID');
+	if (targetGuestId) {
+		if (products.length > 1 || products[0].type !== 'upgrade') throw new OrdersServiceError('Missing/incorrect Upgrade Product', 'INVALID');
 
 		[targetGuest] = await sql`
 			SELECT *
@@ -244,13 +251,13 @@ export async function createOrder({ paymentMethodNonce, cart = [], customer = {}
 			WHERE id = ${targetGuestId}
 		`;
 
-		if(!targetGuest || targetGuest.status !== 'active') throw new OrdersServiceError('Invalid target guest', 'INVALID');
+		if (!targetGuest || targetGuest.status !== 'active') throw new OrdersServiceError('Invalid target guest', 'INVALID');
 	}
 
 	// Ensure we have the all the products attempting to be purchased
 	// For now, use a slug of `GONE` since this should only occur when a product has become inactive since page load
 	// if(!products.length || products.length !== cart.length) throw new OrdersServiceError('Empty/Invalid items in cart', 'INVALID');
-	if(!products.length || products.length !== cart.length) throw new OrdersServiceError('Unavailable items in cart', 'GONE');
+	if (!products.length || products.length !== cart.length) throw new OrdersServiceError('Unavailable items in cart', 'GONE');
 
 	const productsToArchive = [];
 	const orderDetails = cart.map(i => {
@@ -259,30 +266,19 @@ export async function createOrder({ paymentMethodNonce, cart = [], customer = {}
 			remaining = typeof product.maxQuantity === 'number' && product.maxQuantity > 0 ? product.maxQuantity - product.totalSold : null;
 
 		// Special promo quantity check
-		if(
-			promo &&
-			promo.productId === i.productId &&
-			promo.type === 'single-use' &&
-			promo.productQuantity < i.quantity
-		) throw new OrdersServiceError('Promo quantity exceeded', 'INVALID');
+		if (promo && promo.productId === i.productId && promo.type === 'single-use' && promo.productQuantity < i.quantity) throw new OrdersServiceError('Promo quantity exceeded', 'INVALID');
 
 		// Special upgrade quantity check
-		if (
-			targetGuest &&
-			(
-				targetGuest.admissionTier === product.admissionTier ||
-				i.quantity > 1
-			)
-		) throw new OrdersServiceError('Upgrade quantity exceeded', 'INVALID');
+		if (targetGuest && (targetGuest.admissionTier === product.admissionTier || i.quantity > 1)) throw new OrdersServiceError('Upgrade quantity exceeded', 'INVALID');
 
-		if(remaining !== null) {
+		if (remaining !== null) {
 			// So long as the product was active at start, don't worry if this individual order goes over the max
 			// This minimizes the amount of customers who are buying and get failed orders
 			// if(remaining < i.quantity) throw new OrdersServiceError('Purchase exceeds remaining quantity', 'INVALID');
 
 			const totalSold = product.totalSold + i.quantity;
 
-			if(totalSold >= product.maxQuantity) {
+			if (totalSold >= product.maxQuantity) {
 				productsToArchive.push({
 					id: product.id,
 					eventId: product.eventId,
@@ -300,14 +296,14 @@ export async function createOrder({ paymentMethodNonce, cart = [], customer = {}
 
 	// Do some janky non-transactional tier rolling for now
 	try {
-		for(const pta of productsToArchive) {
+		for (const pta of productsToArchive) {
 			await sql`
 				UPDATE products
 				SET status = 'archived', updated = now()
 				WHERE id = ${pta.id}
 			`;
 
-			if(pta.nextTierProductId) {
+			if (pta.nextTierProductId) {
 				await sql`
 					UPDATE products
 					SET status = 'active', updated = now()
@@ -321,42 +317,44 @@ export async function createOrder({ paymentMethodNonce, cart = [], customer = {}
 				`;
 			}
 		}
-	} catch(e) {
+	} catch (e) {
 		log.error(e, 'Failed to archive sold out products');
 	}
 
-	const productSubtotal = orderDetails.map(i => {
-		// Default to product price
-		let itemPrice = i.product.price;
+	const productSubtotal = orderDetails
+		.map(i => {
+			// Default to product price
+			let itemPrice = i.product.price;
 
-		// Overwrite/adjust amount if there's a promo that matches
-		// single-use quantity checks are done in the initial order mapping
-		if(promo && promo.productId === i.product.id) {
-			// If we've set a price, that price always applies to each product regardless of quantity
-			if(promo.price) {
-				itemPrice = (promo.price);
+			// Overwrite/adjust amount if there's a promo that matches
+			// single-use quantity checks are done in the initial order mapping
+			if (promo && promo.productId === i.product.id) {
+				// If we've set a price, that price always applies to each product regardless of quantity
+				if (promo.price) {
+					itemPrice = promo.price;
+				}
+
+				// If there's a percent discount
+				if (promo.flatDiscount && promo.type === 'coupon') {
+					itemPrice = i.product.price - promo.flatDiscount;
+					// Round to 2 decimal places
+					itemPrice = Math.round(itemPrice * 100) / 100;
+				}
+
+				// If there's a percent discount
+				if (promo.percentDiscount && promo.type === 'coupon') {
+					itemPrice = i.product.price - i.product.price * (promo.percentDiscount / 100);
+					// Round to 2 decimal places
+					itemPrice = Math.round(itemPrice * 100) / 100;
+				}
 			}
 
-			// If there's a percent discount
-			if(promo.flatDiscount && promo.type === 'coupon') {
-				itemPrice = i.product.price - promo.flatDiscount;
-				// Round to 2 decimal places
-				itemPrice = Math.round(itemPrice * 100) / 100;
-			}
-
-			// If there's a percent discount
-			if(promo.percentDiscount && promo.type === 'coupon') {
-				itemPrice = i.product.price - (i.product.price * (promo.percentDiscount / 100));
-				// Round to 2 decimal places
-				itemPrice = Math.round(itemPrice * 100) / 100;
-			}
-		}
-
-		return Number(i.quantity) * itemPrice;
-	}).reduce((tot, cur) => tot + cur, 0);
+			return Number(i.quantity) * itemPrice;
+		})
+		.reduce((tot, cur) => tot + cur, 0);
 
 	// We don't sell things for free - if this is 0, there's a bad purchase attempt
-	if(productSubtotal === 0) throw new OrdersServiceError('Empty/Invalid items in cart', 'INVALID');
+	if (productSubtotal === 0) throw new OrdersServiceError('Empty/Invalid items in cart', 'INVALID');
 
 	// This probably doesn't need a remapping anymore?
 	// Leaving because this is explicit about mapping the subtotal to the total charged
@@ -371,7 +369,7 @@ export async function createOrder({ paymentMethodNonce, cart = [], customer = {}
 		WHERE email = ${normalizedEmail}
 	`;
 
-	if(!dbCustomer) {
+	if (!dbCustomer) {
 		const newCustomer = {
 			id: uuidV4(),
 			firstName: customer.firstName.trim(),
@@ -397,7 +395,7 @@ export async function createOrder({ paymentMethodNonce, cart = [], customer = {}
 			primary_guest_name: `${customer.firstName} ${customer.lastName}`,
 			primary_guest_email: customer.email,
 			order_id: orderId,
-			...promoId && {promo_id: promoId}
+			...(promoId && { promo_id: promoId })
 		},
 		options: {
 			submitForSettlement: true
@@ -405,7 +403,7 @@ export async function createOrder({ paymentMethodNonce, cart = [], customer = {}
 	});
 
 	// Payment order errored - try again
-	if(!response.success) {
+	if (!response.success) {
 		throw new OrdersServiceError(`Order error: "${response.message}"`, 'UNKNOWN', response);
 	}
 
@@ -428,7 +426,7 @@ export async function createOrder({ paymentMethodNonce, cart = [], customer = {}
 
 	// Also add bundled products
 	orderDetails.forEach(i => {
-		if(i.bundledProduct) {
+		if (i.bundledProduct) {
 			orderItems.push({
 				productId: i.bundledProduct.id,
 				quantity: i.quantity,
@@ -448,10 +446,10 @@ export async function createOrder({ paymentMethodNonce, cart = [], customer = {}
 	};
 
 	// If a promo was used, mark it as claimed
-	if(promoId && promo) {
+	if (promoId && promo) {
 		order.promoId = promoId;
 
-		if(promo.type === 'single-use') {
+		if (promo.type === 'single-use') {
 			await sql`
 				UPDATE promos
 				SET status = 'claimed', updated = now()
@@ -471,38 +469,38 @@ export async function createOrder({ paymentMethodNonce, cart = [], customer = {}
 		await sql`
 			INSERT INTO transactions ${sql(transaction)}
 		`;
-	} catch(e) {
+	} catch (e) {
 		// Don't let this write fail the response - the customer has been charged at this point
 		log.error(e, 'Error writing order/order items/transactions to DB');
 	}
 
 	// Write a guest with the purchaser's name to the DB
 	orderDetails.forEach(i => {
-		if(i.product.type === 'ticket') {
+		if (i.product.type === 'ticket') {
 			for (let j = 0; j < i.quantity; j++) {
 				(async () => {
 					try {
 						await createGuest({
 							firstName: dbCustomer.firstName,
-							lastName: dbCustomer.lastName  + (j > 0 ? ` Guest ${j}` : ''),
+							lastName: dbCustomer.lastName + (j > 0 ? ` Guest ${j}` : ''),
 							createdReason: 'purchase',
 							eventId: i.product.eventId,
 							orderId,
 							admissionTier: i.product.admissionTier
 						});
-					} catch(e) {
+					} catch (e) {
 						log.error(e, 'Error creating guest');
 					}
 				})();
 			}
-		} else if(i.product.type === 'upgrade') {
+		} else if (i.product.type === 'upgrade') {
 			for (let j = 0; j < i.quantity; j++) {
 				(async () => {
 					try {
 						await updateGuest(targetGuest.id, {
 							admissionTier: i.product.admissionTier
 						});
-					} catch(e) {
+					} catch (e) {
 						log.error(e, 'Error creating guest');
 					}
 				})();
@@ -510,19 +508,19 @@ export async function createOrder({ paymentMethodNonce, cart = [], customer = {}
 		}
 
 		// Handle bundled tickets
-		if(i.bundledProduct?.type === 'bundle-ticket') {
+		if (i.bundledProduct?.type === 'bundle-ticket') {
 			for (let j = 0; j < i.quantity; j++) {
 				(async () => {
 					try {
 						await createGuest({
 							firstName: dbCustomer.firstName,
-							lastName: dbCustomer.lastName  + (j > 0 ? ` Guest ${j}` : ''),
+							lastName: dbCustomer.lastName + (j > 0 ? ` Guest ${j}` : ''),
 							createdReason: 'purchase',
 							eventId: i.bundledProduct.eventId,
 							orderId,
 							admissionTier: i.bundledProduct.admissionTier
 						});
-					} catch(e) {
+					} catch (e) {
 						log.error(e, 'Error creating guest');
 					}
 				})();
@@ -540,34 +538,39 @@ export async function createOrder({ paymentMethodNonce, cart = [], customer = {}
 export async function generateOrderToken(id: string): Promise<string> {
 	let order: Order | undefined;
 	try {
-		[order] = (await sql<OrderRow[]>`
+		[order] = (
+			await sql<OrderRow[]>`
 			SELECT ${sql(orderColumns)}
 			FROM orders
 			WHERE id = ${id}
-		`).map(convertAmountToNumber);
-	} catch(e) {
+		`
+		).map(convertAmountToNumber);
+	} catch (e) {
 		throw new OrdersServiceError('Could not query orders', 'UNKNOWN', e);
 	}
 
-	if(!order) throw new OrdersServiceError('Order not found', 'NOT_FOUND');
+	if (!order) throw new OrdersServiceError('Order not found', 'NOT_FOUND');
 
-	return jwt.sign({
-		iss: 'mustachebash',
-		aud: 'tickets',
-		iat: Math.round(order.created / 1000),
-		sub: id
-	},
-	orderSecret);
+	return jwt.sign(
+		{
+			iss: 'mustachebash',
+			aud: 'tickets',
+			iat: Math.round(order.created / 1000),
+			sub: id
+		},
+		orderSecret
+	);
 }
 
 export function validateOrderToken(token: string) {
-	return jwt.verify(token, orderSecret, {issuer: 'mustachebash'});
+	return jwt.verify(token, orderSecret, { issuer: 'mustachebash' });
 }
 
 export async function getOrder(id: string): Promise<OrderWithItems> {
 	let order: OrderWithItems | undefined;
 	try {
-		[order] = (await sql<OrderRowWithItems[]>`
+		[order] = (
+			await sql<OrderRowWithItems[]>`
 			SELECT
 				${sql(orderColumns.map(c => `o.${c}`))},
 				${aggregateOrderItems}
@@ -576,8 +579,9 @@ export async function getOrder(id: string): Promise<OrderWithItems> {
 				ON o.id = i.order_id
 			WHERE id = ${id}
 			GROUP BY o.id
-		`).map(convertAmountToNumber);
-	} catch(e) {
+		`
+		).map(convertAmountToNumber);
+	} catch (e) {
 		throw new OrdersServiceError('Could not query orders', 'UNKNOWN', e);
 	}
 
@@ -589,14 +593,16 @@ export async function getOrder(id: string): Promise<OrderWithItems> {
 export async function getOrderTransfers(id: string): Promise<Order[]> {
 	let transfers: Order[];
 	try {
-		transfers = (await sql<OrderRow[]>`
+		transfers = (
+			await sql<OrderRow[]>`
 			SELECT
 				${sql(orderColumns.map(c => `o.${c}`))}
 			FROM orders as o
 			WHERE o.parent_order_id = ${id}
 			GROUP BY o.id
-		`).map(convertAmountToNumber);
-	} catch(e) {
+		`
+		).map(convertAmountToNumber);
+	} catch (e) {
 		throw new OrdersServiceError('Could not query orders', 'UNKNOWN', e);
 	}
 
@@ -621,7 +627,7 @@ export async function refundOrder(id: string): Promise<void> {
 			WHERE
 				o.id = ${id};
 		`;
-	} catch(e) {
+	} catch (e) {
 		throw new OrdersServiceError('Could not query orders', 'UNKNOWN', e);
 	}
 
@@ -635,24 +641,24 @@ export async function refundOrder(id: string): Promise<void> {
 		parentTransactionId: order.transactionId
 	};
 
-	if(order.processor === 'braintree') {
+	if (order.processor === 'braintree') {
 		let processorResponse;
 		try {
-			const {status: processorStatus} = await gateway.transaction.find(order.processorTransactionId);
+			const { status: processorStatus } = await gateway.transaction.find(order.processorTransactionId);
 
-			if(['settled', 'settling'].includes(processorStatus)) {
+			if (['settled', 'settling'].includes(processorStatus)) {
 				processorResponse = await gateway.transaction.refund(order.processorTransactionId);
 				newTransaction.type = 'refund';
 			} else {
 				processorResponse = await gateway.transaction.void(order.processorTransactionId);
 				newTransaction.type = 'void';
 			}
-		} catch(e) {
+		} catch (e) {
 			throw new OrdersServiceError('Order not refunded', 'BRAINTREE_ERROR', e);
 		}
 
 		// Sometimes the call is successful but the refund is not
-		if(!processorResponse.success) throw new OrdersServiceError('Order not refunded', 'BRAINTREE_ERROR', processorResponse);
+		if (!processorResponse.success) throw new OrdersServiceError('Order not refunded', 'BRAINTREE_ERROR', processorResponse);
 
 		newTransaction.processorTransactionId = processorResponse.transaction.id;
 		newTransaction.processorCreatedAt = processorResponse.transaction.createdAt;
@@ -678,7 +684,7 @@ export async function refundOrder(id: string): Promise<void> {
 				WHERE order_id = ${id}
 			`
 		]);
-	} catch(e) {
+	} catch (e) {
 		throw new OrdersServiceError('Order voiding failed', 'UNKNOWN', e);
 	}
 }

@@ -1,8 +1,8 @@
 /**
-* Logger
-*
-* Class for creating a Pino logger
-*/
+ * Logger
+ *
+ * Class for creating a Pino logger
+ */
 import { pino } from 'pino';
 
 import type { AppContext } from '../index.js';
@@ -61,16 +61,16 @@ function stackdriverFormatter(
 }
 
 function requestSerializer(request: AppContext['request']) {
-	if(!request) return request;
+	if (!request) return request;
 
 	const reqObj = {
 		method: request.method,
 		url: request.originalUrl,
-		headers: {...request.headers},
+		headers: { ...request.headers },
 		remoteAddress: request.ip
 	};
 
-	if(request.headers.authorization) {
+	if (request.headers.authorization) {
 		reqObj.headers.authorization = `${request.headers.authorization.substring(0, 20)}...`;
 	}
 
@@ -78,18 +78,18 @@ function requestSerializer(request: AppContext['request']) {
 }
 
 function ctxSerializer(ctx: AppContext) {
-	if(!ctx) return ctx;
+	if (!ctx) return ctx;
 
 	const ctxObj: Record<string, unknown> = {};
 
-	if(ctx._matchedRoute) ctxObj.route = ctx._matchedRoute;
-	if(ctx.state.responseTime) ctxObj.responseTime = ctx.state.responseTime;
+	if (ctx._matchedRoute) ctxObj.route = ctx._matchedRoute;
+	if (ctx.state.responseTime) ctxObj.responseTime = ctx.state.responseTime;
 
 	return ctxObj;
 }
 
 function responseSerializer(response: AppContext['response']) {
-	if(!response) return response;
+	if (!response) return response;
 
 	const resObj = {
 		headers: response.headers,
@@ -101,7 +101,7 @@ function responseSerializer(response: AppContext['response']) {
 }
 
 function errSerializer(err: Record<string, unknown> & { context?: Record<string, unknown> }) {
-	if(!err) return err;
+	if (!err) return err;
 
 	const errObj = {
 		...err,

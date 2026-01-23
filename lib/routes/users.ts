@@ -8,29 +8,27 @@ const usersRouter = new Router({
 
 usersRouter.use(authorizeUser);
 
-usersRouter
-	.get('/', async ctx => {
-		try {
-			const users = await getUsers();
+usersRouter.get('/', async ctx => {
+	try {
+		const users = await getUsers();
 
-			return ctx.body = users;
-		} catch(e) {
-			throw ctx.throw(e);
-		}
-	});
+		return (ctx.body = users);
+	} catch (e) {
+		throw ctx.throw(e);
+	}
+});
 
-usersRouter
-	.get('/:id', async ctx => {
-		try {
-			const user = await getUser(ctx.params.username);
+usersRouter.get('/:id', async ctx => {
+	try {
+		const user = await getUser(ctx.params.username);
 
-			if(!user) throw ctx.throw(404);
+		if (!user) throw ctx.throw(404);
 
-			delete user.password;
-			return ctx.body = user;
-		} catch(e) {
-			throw ctx.throw(e);
-		}
-	});
+		delete user.password;
+		return (ctx.body = user);
+	} catch (e) {
+		throw ctx.throw(e);
+	}
+});
 
 export default usersRouter;

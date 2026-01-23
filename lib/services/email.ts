@@ -9,12 +9,11 @@ import log from '../utils/log.js';
 import MailgunJs from 'mailgun-js';
 import MailChimpClient from 'mailchimp-api-v3';
 
-const mailgun = MailgunJs({apiKey: config.mailgun.apiKey, domain: config.mailgun.domain});
+const mailgun = MailgunJs({ apiKey: config.mailgun.apiKey, domain: config.mailgun.domain });
 
 const mailchimp = new MailChimpClient(config.mailchimp.apiKey),
 	md5 = (string: string) => crypto.createHash('md5').update(string).digest('hex');
 
-/* eslint-disable max-len */
 /**
  * This will upsert a member into a list with first and last names, subscribe by default (but leave existing statuses in place)
  * then apply all tags listed
@@ -38,24 +37,26 @@ export async function upsertEmailSubscriber(listId: string, { email, firstName, 
 			}
 		});
 
-		if(tags.length) {
+		if (tags.length) {
 			await mailchimp.post(`/lists/${listId}/members/${memberHash}/tags`, {
-				tags: tags.map(tag => ({name: tag, status: 'active'}))
+				tags: tags.map(tag => ({ name: tag, status: 'active' }))
 			});
 		}
 
-		log.info({email, listId}, 'Email successfully added to list');
-	} catch(e) {
-		log.error({err: e, listId, email}, 'Failed to add email to MailChimp list');
+		log.info({ email, listId }, 'Email successfully added to list');
+	} catch (e) {
+		log.error({ err: e, listId, email }, 'Failed to add email to MailChimp list');
 	}
 }
 
 export function sendReceipt(guestFirstName: string, guestLastName: string, guestEmail: string, confirmation: string, orderId: string, orderToken: string, amount: number) {
-	mailgun.messages().send({
-		from: 'Mustache Bash Tickets <contact@mustachebash.com>',
-		to: guestFirstName + ' ' + guestLastName + ' <' + guestEmail + '> ',
-		subject: 'Your Tickets & Confirmation For Mustache Bash 2026',
-		html: `
+	mailgun
+		.messages()
+		.send({
+			from: 'Mustache Bash Tickets <contact@mustachebash.com>',
+			to: guestFirstName + ' ' + guestLastName + ' <' + guestEmail + '> ',
+			subject: 'Your Tickets & Confirmation For Mustache Bash 2026',
+			html: `
 <!doctype html>
 <html>
 	<head>
@@ -204,17 +205,19 @@ table[class=body] .article {
 	</body>
 </html>
 		`
-	})
-		.then(mailgunResponse => log.info({mailgunResponse, guestEmail, confirmation}, 'Receipt email sent'))
-		.catch(err => log.error({err, guestEmail, confirmation}, 'Receipt email failed to send'));
+		})
+		.then(mailgunResponse => log.info({ mailgunResponse, guestEmail, confirmation }, 'Receipt email sent'))
+		.catch(err => log.error({ err, guestEmail, confirmation }, 'Receipt email failed to send'));
 }
 
 export function sendUpgradeReceipt(customerFirstName: string, customerLastName: string, customerEmail: string, confirmation: string, orderId: string, amount: number) {
-	mailgun.messages().send({
-		from: 'Mustache Bash Tickets <contact@mustachebash.com>',
-		to: customerFirstName + ' ' + customerLastName + ' <' + customerEmail + '> ',
-		subject: 'Your VIP Upgrade Confirmation For Mustache Bash 2026',
-		html: `
+	mailgun
+		.messages()
+		.send({
+			from: 'Mustache Bash Tickets <contact@mustachebash.com>',
+			to: customerFirstName + ' ' + customerLastName + ' <' + customerEmail + '> ',
+			subject: 'Your VIP Upgrade Confirmation For Mustache Bash 2026',
+			html: `
 <!doctype html>
 <html>
 	<head>
@@ -358,17 +361,19 @@ table[class=body] .article {
 	</body>
 </html>
 		`
-	})
-		.then(mailgunResponse => log.info({mailgunResponse, customerEmail, confirmation}, 'Receipt email sent'))
-		.catch(err => log.error({err, customerEmail, confirmation}, 'Receipt email failed to send'));
+		})
+		.then(mailgunResponse => log.info({ mailgunResponse, customerEmail, confirmation }, 'Receipt email sent'))
+		.catch(err => log.error({ err, customerEmail, confirmation }, 'Receipt email failed to send'));
 }
 
 export function sendTransfereeConfirmation(transfereeFirstName: string, transfereeLastName: string, transfereeEmail: string, parentOrderId: string, orderToken: string) {
-	mailgun.messages().send({
-		from: 'Mustache Bash Tickets <contact@mustachebash.com>',
-		to: transfereeFirstName + ' ' + transfereeLastName + ' <' + transfereeEmail + '> ',
-		subject: 'Your Tickets & Transfer Confirmation For San Diego Mustache Bash 2026',
-		html: `
+	mailgun
+		.messages()
+		.send({
+			from: 'Mustache Bash Tickets <contact@mustachebash.com>',
+			to: transfereeFirstName + ' ' + transfereeLastName + ' <' + transfereeEmail + '> ',
+			subject: 'Your Tickets & Transfer Confirmation For San Diego Mustache Bash 2026',
+			html: `
 <!doctype html>
 <html>
 	<head>
@@ -512,8 +517,8 @@ table[class=body] .article {
 	</body>
 </html>
 		`
-	})
-		.then(mailgunResponse => log.info({mailgunResponse, transfereeEmail, parentOrderId}, 'Transferee email sent'))
-		.catch(err => log.error({err, transfereeEmail, parentOrderId}, 'Transferee email failed to send'));
+		})
+		.then(mailgunResponse => log.info({ mailgunResponse, transfereeEmail, parentOrderId }, 'Transferee email sent'))
+		.catch(err => log.error({ err, transfereeEmail, parentOrderId }, 'Transferee email failed to send'));
 }
 /* eslint-enable */
