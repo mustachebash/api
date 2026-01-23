@@ -1,11 +1,12 @@
 import Router from '@koa/router';
 import { upsertEmailSubscriber } from '../services/email.js';
 import { isRecordLike } from '../utils/type-guards.js';
+import { AppContext } from '../index.js';
 
 // TODO: make this configurable at some point
 const EMAIL_LIST_ID = '90392ecd5e';
 
-const sitesRouter = new Router({
+const sitesRouter = new Router<AppContext['state'], AppContext>({
 	prefix: '/sites'
 });
 

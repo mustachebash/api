@@ -1,8 +1,9 @@
 import Router from '@koa/router';
 import { authorizeUser } from '../middleware/auth.js';
 import { getTransactions, getTransaction, getTransactionProcessorDetails } from '../services/transactions.js';
+import { AppContext } from '../index.js';
 
-const transactionsRouter = new Router({
+const transactionsRouter = new Router<AppContext['state'], AppContext>({
 	prefix: '/transactions'
 });
 

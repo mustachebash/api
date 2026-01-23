@@ -2,8 +2,9 @@ import Router from '@koa/router';
 import { authorizeUser, requiresPermission } from '../middleware/auth.js';
 import { getEvents, getEvent, createEvent, updateEvent, getEventSummary, getOpeningSales, getEventExtendedStats, getEventDailyTickets, getEventCheckins } from '../services/events.js';
 import { isRecordLike } from '../utils/type-guards.js';
+import { AppContext } from '../index.js';
 
-const eventsRouter = new Router({
+const eventsRouter = new Router<AppContext['state'], AppContext>({
 	prefix: '/events'
 });
 

@@ -5,12 +5,13 @@ import { createOrder, getOrders, getOrder, getOrderTransfers, refundOrder, gener
 import { sendReceipt, upsertEmailSubscriber, sendTransfereeConfirmation, sendUpgradeReceipt } from '../services/email.js';
 import { getTransactions } from '../services/transactions.js';
 import { isRecordLike } from '../utils/type-guards.js';
+import { AppContext } from '../index.js';
 
 // TODO: make this configurable at some point
 const EMAIL_LIST = '90392ecd5e',
 	EMAIL_TAG = 'Mustache Bash 2026 Attendee';
 
-const ordersRouter = new Router({
+const ordersRouter = new Router<AppContext['state'], AppContext>({
 	prefix: '/orders'
 });
 

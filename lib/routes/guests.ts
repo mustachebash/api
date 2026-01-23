@@ -2,8 +2,9 @@ import Router from '@koa/router';
 import { authorizeUser, requiresPermission } from '../middleware/auth.js';
 import { createGuest, getGuests, getGuest, updateGuest, archiveGuest } from '../services/guests.js';
 import { isRecordLike } from '../utils/type-guards.js';
+import { AppContext } from '../index.js';
 
-const guestsRouter = new Router({
+const guestsRouter = new Router<AppContext['state'], AppContext>({
 	prefix: '/guests'
 });
 

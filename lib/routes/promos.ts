@@ -3,8 +3,9 @@ import { authorizeUser, requiresPermission } from '../middleware/auth.js';
 import { createPromo, getPromos, getPromo, updatePromo } from '../services/promos.js';
 import { getProduct } from '../services/products.js';
 import { isRecordLike } from '../utils/type-guards.js';
+import { AppContext } from '../index.js';
 
-const promosRouter = new Router({
+const promosRouter = new Router<AppContext['state'], AppContext>({
 	prefix: '/promos'
 });
 

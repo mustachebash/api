@@ -2,8 +2,9 @@ import Router from '@koa/router';
 import { authorizeUser } from '../middleware/auth.js';
 import { createProduct, getProducts, getProduct, updateProduct } from '../services/products.js';
 import { isRecordLike } from '../utils/type-guards.js';
+import { AppContext } from '../index.js';
 
-const productsRouter = new Router({
+const productsRouter = new Router<AppContext['state'], AppContext>({
 	prefix: '/products'
 });
 
