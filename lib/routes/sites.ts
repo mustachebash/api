@@ -1,6 +1,6 @@
 import Router from '@koa/router';
 import { upsertEmailSubscriber } from '../services/email.js';
-import { isRecordLike, isServiceError } from '../utils/type-guards.js';
+import { isRecordLike } from '../utils/type-guards.js';
 import { AppContext } from '../index.js';
 
 // TODO: make this configurable at some point
