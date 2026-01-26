@@ -2,7 +2,7 @@ import Router from '@koa/router';
 import { authorizeUser, requiresPermission } from '../middleware/auth.js';
 import { createPromo, getPromos, getPromo, updatePromo } from '../services/promos.js';
 import { getProduct } from '../services/products.js';
-import { isRecordLike } from '../utils/type-guards.js';
+import { isRecordLike, isServiceError } from '../utils/type-guards.js';
 import { AppContext } from '../index.js';
 
 const promosRouter = new Router<AppContext['state'], AppContext>({
@@ -16,22 +16,24 @@ promosRouter
 
 			return (ctx.body = promos);
 		} catch (e) {
-			throw ctx.throw(e);
+			if (e instanceof Error) throw ctx.throw(e);
+			throw e;
 		}
 	})
 	.post('/', authorizeUser, requiresPermission('write'), async ctx => {
 		if (!isRecordLike(ctx.request.body)) throw ctx.throw(400);
 
 		try {
-			const promo = await createPromo({ ...ctx.request.body, createdBy: ctx.state.user.id });
+			const promo = await createPromo({ ...ctx.request.body, createdBy: ctx.state.user!.id });
 
 			ctx.set('Location', `https://${ctx.host}${ctx.path}/${promo.id}`);
 			ctx.status = 201;
 			return (ctx.body = promo);
 		} catch (e) {
-			if (e.code === 'INVALID') throw ctx.throw(400);
+			if (isServiceError(e) && e.code === 'INVALID') throw ctx.throw(400);
 
-			throw ctx.throw(e);
+			if (e instanceof Error) throw ctx.throw(e);
+			throw e;
 		}
 	});
 
@@ -61,18 +63,20 @@ promosRouter
 
 			return (ctx.body = promo);
 		} catch (e) {
-			throw ctx.throw(e);
+			if (e instanceof Error) throw ctx.throw(e);
+			throw e;
 		}
 	})
 	.delete('/:id', authorizeUser, requiresPermission('write'), async ctx => {
 		try {
-			const promo = await updatePromo(ctx.params.id, { updatedBy: ctx.state.user.id, status: 'disabled' });
+			const promo = await updatePromo(ctx.params.id, { updatedBy: ctx.state.user!.id, status: 'disabled' });
 
 			return (ctx.body = promo);
 		} catch (e) {
-			if (e.code === 'INVALID') throw ctx.throw(400);
+			if (isServiceError(e) && e.code === 'INVALID') throw ctx.throw(400);
 
-			throw ctx.throw(e);
+			if (e instanceof Error) throw ctx.throw(e);
+			throw e;
 		}
 	});
 

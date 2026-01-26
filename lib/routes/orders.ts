@@ -4,7 +4,7 @@ import { getOrderTickets, transferTickets } from '../services/tickets.js';
 import { createOrder, getOrders, getOrder, getOrderTransfers, refundOrder, generateOrderToken } from '../services/orders.js';
 import { sendReceipt, upsertEmailSubscriber, sendTransfereeConfirmation, sendUpgradeReceipt } from '../services/email.js';
 import { getTransactions } from '../services/transactions.js';
-import { isRecordLike } from '../utils/type-guards.js';
+import { isRecordLike, isServiceError } from '../utils/type-guards.js';
 import { AppContext } from '../index.js';
 
 // TODO: make this configurable at some point
@@ -22,7 +22,8 @@ ordersRouter
 
 			return (ctx.body = orders);
 		} catch (e) {
-			throw ctx.throw(e);
+			if (e instanceof Error) throw ctx.throw(e);
+			throw e;
 		}
 	})
 	.post('/', async ctx => {
@@ -47,7 +48,7 @@ ordersRouter
 				sendReceipt(firstName, lastName, email, transaction.processorTransactionId, order.id, orderToken, order.amount);
 				// Add them to the mailing list and tag as an attendee
 				const emailTags = [EMAIL_TAG];
-				if (ctx.request.body.customer.marketingOptIn) emailTags.push('Partner Marketing');
+				if (isRecordLike(ctx.request.body.customer) && ctx.request.body.customer.marketingOptIn) emailTags.push('Partner Marketing');
 				upsertEmailSubscriber(EMAIL_LIST, { email, firstName, lastName, tags: emailTags });
 			}
 
@@ -55,10 +56,11 @@ ordersRouter
 			ctx.status = 201;
 			return (ctx.body = { confirmationId: transaction.processorTransactionId, orderId: order.id, token: orderToken });
 		} catch (e) {
-			if (e.code === 'INVALID') throw ctx.throw(400, e, { expose: false });
-			if (e.code === 'GONE') throw ctx.throw(410, e, { expose: false });
+			if (isServiceError(e) && e.code === 'INVALID') throw ctx.throw(400, e, { expose: false });
+			if (isServiceError(e) && e.code === 'GONE') throw ctx.throw(410, e, { expose: false });
 
-			throw ctx.throw(e);
+			if (e instanceof Error) throw ctx.throw(e);
+			throw e;
 		}
 	});
 
@@ -71,18 +73,20 @@ ordersRouter
 
 			return (ctx.body = order);
 		} catch (e) {
-			throw ctx.throw(e);
+			if (e instanceof Error) throw ctx.throw(e);
+			throw e;
 		}
 	})
 	.delete('/:id', authorizeUser, async ctx => {
 		try {
-			const refundDetails = await refundOrder(ctx.params.id, ctx.state.user.id);
+			const refundDetails = await refundOrder(ctx.params.id, ctx.state.user!.id);
 
 			return (ctx.body = refundDetails);
 		} catch (e) {
-			if (e.code === 'NOT_FOUND') throw ctx.throw(404);
+			if (isServiceError(e) && e.code === 'NOT_FOUND') throw ctx.throw(404);
 
-			throw ctx.throw(e);
+			if (e instanceof Error) throw ctx.throw(e);
+			throw e;
 		}
 	});
 
@@ -92,9 +96,10 @@ ordersRouter.get('/:id/tickets', authorizeUser, async ctx => {
 
 		ctx.body = tickets;
 	} catch (e) {
-		if (e.code === 'UNAUTHORIZED') throw ctx.throw(401);
+		if (isServiceError(e) && e.code === 'UNAUTHORIZED') throw ctx.throw(401);
 
-		throw ctx.throw(e);
+		if (e instanceof Error) throw ctx.throw(e);
+		throw e;
 	}
 });
 
@@ -104,9 +109,10 @@ ordersRouter.get('/:id/token', authorizeUser, async ctx => {
 
 		return (ctx.body = { id: ctx.params.id, token: orderToken });
 	} catch (e) {
-		if (e.code === 'NOT_FOUND') throw ctx.throw(404);
+		if (isServiceError(e) && e.code === 'NOT_FOUND') throw ctx.throw(404);
 
-		throw ctx.throw(e);
+		if (e instanceof Error) throw ctx.throw(e);
+		throw e;
 	}
 });
 
@@ -116,9 +122,10 @@ ordersRouter.get('/:id/transactions', authorizeUser, async ctx => {
 
 		return (ctx.body = transactions);
 	} catch (e) {
-		if (e.code === 'NOT_FOUND') throw ctx.throw(404);
+		if (isServiceError(e) && e.code === 'NOT_FOUND') throw ctx.throw(404);
 
-		throw ctx.throw(e);
+		if (e instanceof Error) throw ctx.throw(e);
+		throw e;
 	}
 });
 
@@ -129,16 +136,17 @@ ordersRouter
 
 			return (ctx.body = transfers);
 		} catch (e) {
-			if (e.code === 'NOT_FOUND') throw ctx.throw(404);
+			if (isServiceError(e) && e.code === 'NOT_FOUND') throw ctx.throw(404);
 
-			throw ctx.throw(e);
+			if (e instanceof Error) throw ctx.throw(e);
+			throw e;
 		}
 	})
 	.post('/:id/transfers', authorizeUser, requiresPermission('write'), async ctx => {
 		if (!isRecordLike(ctx.request.body)) throw ctx.throw(400);
 
 		try {
-			const { transferee, order } = await transferTickets(ctx.params.id, ctx.request.body, ctx.state.user.id),
+			const { transferee, order } = await transferTickets(ctx.params.id, ctx.request.body, ctx.state.user!.id),
 				{ email, firstName, lastName } = transferee,
 				{ id, parentOrderId } = order;
 
@@ -158,10 +166,11 @@ ordersRouter
 			ctx.status = 201;
 			return (ctx.body = {});
 		} catch (e) {
-			if (e.code === 'INVALID') throw ctx.throw(400, e, { expose: false });
-			if (e.code === 'NOT_FOUND') throw ctx.throw(404);
+			if (isServiceError(e) && e.code === 'INVALID') throw ctx.throw(400, e, { expose: false });
+			if (isServiceError(e) && e.code === 'NOT_FOUND') throw ctx.throw(404);
 
-			throw ctx.throw(e);
+			if (e instanceof Error) throw ctx.throw(e);
+			throw e;
 		}
 	});
 

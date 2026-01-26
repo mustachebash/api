@@ -1,7 +1,7 @@
 import Router from '@koa/router';
 import { authorizeUser } from '../middleware/auth.js';
 import { createProduct, getProducts, getProduct, updateProduct } from '../services/products.js';
-import { isRecordLike } from '../utils/type-guards.js';
+import { isRecordLike, isServiceError } from '../utils/type-guards.js';
 import { AppContext } from '../index.js';
 
 const productsRouter = new Router<AppContext['state'], AppContext>({
@@ -17,7 +17,8 @@ productsRouter
 
 			return (ctx.body = products);
 		} catch (e) {
-			throw ctx.throw(e);
+			if (e instanceof Error) throw ctx.throw(e);
+			throw e;
 		}
 	})
 	.post('/', async ctx => {
@@ -30,9 +31,10 @@ productsRouter
 			ctx.status = 201;
 			return (ctx.body = product);
 		} catch (e) {
-			if (e.code === 'INVALID') throw ctx.throw(400, e);
+			if (isServiceError(e) && e.code === 'INVALID') throw ctx.throw(400, e);
 
-			throw ctx.throw(e);
+			if (e instanceof Error) throw ctx.throw(e);
+			throw e;
 		}
 	});
 
@@ -45,20 +47,22 @@ productsRouter
 
 			return (ctx.body = product);
 		} catch (e) {
-			throw ctx.throw(e);
+			if (e instanceof Error) throw ctx.throw(e);
+			throw e;
 		}
 	})
 	.patch('/:id', async ctx => {
 		if (!isRecordLike(ctx.request.body)) throw ctx.throw(400);
 
 		try {
-			const product = await updateProduct(ctx.params.id, { ...ctx.request.body, updatedBy: ctx.state.user.id });
+			const product = await updateProduct(ctx.params.id, { ...ctx.request.body, updatedBy: ctx.state.user!.id });
 
 			return (ctx.body = product);
 		} catch (e) {
-			if (e.code === 'INVALID') throw ctx.throw(400);
+			if (isServiceError(e) && e.code === 'INVALID') throw ctx.throw(400);
 
-			throw ctx.throw(e);
+			if (e instanceof Error) throw ctx.throw(e);
+			throw e;
 		}
 	});
 

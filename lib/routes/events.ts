@@ -1,7 +1,7 @@
 import Router from '@koa/router';
 import { authorizeUser, requiresPermission } from '../middleware/auth.js';
 import { getEvents, getEvent, createEvent, updateEvent, getEventSummary, getOpeningSales, getEventExtendedStats, getEventDailyTickets, getEventCheckins } from '../services/events.js';
-import { isRecordLike } from '../utils/type-guards.js';
+import { isRecordLike, isServiceError } from '../utils/type-guards.js';
 import { AppContext } from '../index.js';
 
 const eventsRouter = new Router<AppContext['state'], AppContext>({
@@ -17,7 +17,8 @@ eventsRouter
 
 			return (ctx.body = events);
 		} catch (e) {
-			throw ctx.throw(e);
+			if (e instanceof Error) throw ctx.throw(e);
+			throw e;
 		}
 	})
 	.post('/', requiresPermission('admin'), async ctx => {
@@ -28,9 +29,10 @@ eventsRouter
 
 			return (ctx.body = event);
 		} catch (e) {
-			if (e.code === 'INVALID') throw ctx.throw(400);
+			if (isServiceError(e) && e.code === 'INVALID') throw ctx.throw(400);
 
-			throw ctx.throw(e);
+			if (e instanceof Error) throw ctx.throw(e);
+			throw e;
 		}
 	});
 
@@ -41,22 +43,24 @@ eventsRouter
 
 			return (ctx.body = event);
 		} catch (e) {
-			if (e.code === 'NOT_FOUND') throw ctx.throw(404);
+			if (isServiceError(e) && e.code === 'NOT_FOUND') throw ctx.throw(404);
 
-			throw ctx.throw(e);
+			if (e instanceof Error) throw ctx.throw(e);
+			throw e;
 		}
 	})
 	.patch('/:id', requiresPermission('admin'), async ctx => {
 		if (!isRecordLike(ctx.request.body)) throw ctx.throw(400);
 
 		try {
-			const event = await updateEvent(ctx.params.id, { ...ctx.request.body, updatedBy: ctx.state.user.id });
+			const event = await updateEvent(ctx.params.id, { ...ctx.request.body, updatedBy: ctx.state.user!.id });
 
 			return (ctx.body = event);
 		} catch (e) {
-			if (e.code === 'INVALID') throw ctx.throw(400);
+			if (isServiceError(e) && e.code === 'INVALID') throw ctx.throw(400);
 
-			throw ctx.throw(e);
+			if (e instanceof Error) throw ctx.throw(e);
+			throw e;
 		}
 	});
 
@@ -68,7 +72,8 @@ eventsRouter.get('/:id/summary', async ctx => {
 
 		return (ctx.body = eventSummary);
 	} catch (e) {
-		throw ctx.throw(e);
+		if (e instanceof Error) throw ctx.throw(e);
+		throw e;
 	}
 });
 
@@ -80,7 +85,8 @@ eventsRouter.get('/:id/extended-stats', async ctx => {
 
 		return (ctx.body = eventExtendedStats);
 	} catch (e) {
-		throw ctx.throw(e);
+		if (e instanceof Error) throw ctx.throw(e);
+		throw e;
 	}
 });
 
@@ -107,7 +113,8 @@ eventsRouter.get('/:id/chart', async ctx => {
 
 		return (ctx.body = chartData);
 	} catch (e) {
-		throw ctx.throw(e);
+		if (e instanceof Error) throw ctx.throw(e);
+		throw e;
 	}
 });
 

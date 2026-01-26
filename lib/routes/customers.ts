@@ -2,7 +2,7 @@ import Router from '@koa/router';
 import { AppContext } from '../index.js';
 import { authorizeUser, requiresPermission } from '../middleware/auth.js';
 import { createCustomer, getCustomers, getCustomer, updateCustomer } from '../services/customers.js';
-import { isRecordLike } from '../utils/type-guards.js';
+import { isRecordLike, isServiceError } from '../utils/type-guards.js';
 
 const customersRouter = new Router<AppContext['state'], AppContext>({
 	prefix: '/customers'
@@ -15,22 +15,24 @@ customersRouter
 
 			return (ctx.body = customers);
 		} catch (e) {
-			throw ctx.throw(e);
+			if (e instanceof Error) throw ctx.throw(e);
+			throw e;
 		}
 	})
 	.post('/', authorizeUser, requiresPermission('admin'), async ctx => {
 		if (!isRecordLike(ctx.request.body)) throw ctx.throw(400);
 
 		try {
-			const customer = await createCustomer({ ...ctx.request.body, createdBy: ctx.state.user.id });
+			const customer = await createCustomer({ ...ctx.request.body, createdBy: ctx.state.user!.id });
 
 			ctx.set('Location', `https://${ctx.host}${ctx.path}/${customer.id}`);
 			ctx.status = 201;
 			return (ctx.body = customer);
 		} catch (e) {
-			if (e.code === 'INVALID') throw ctx.throw(400);
+			if (isServiceError(e) && e.code === 'INVALID') throw ctx.throw(400);
 
-			throw ctx.throw(e);
+			if (e instanceof Error) throw ctx.throw(e);
+			throw e;
 		}
 	});
 
@@ -43,20 +45,22 @@ customersRouter
 
 			return (ctx.body = customer);
 		} catch (e) {
-			if (e.code === 'NOT_FOUND') throw ctx.throw(404);
+			if (isServiceError(e) && e.code === 'NOT_FOUND') throw ctx.throw(404);
 
-			throw ctx.throw(e);
+			if (e instanceof Error) throw ctx.throw(e);
+			throw e;
 		}
 	})
 	.delete('/:id', authorizeUser, requiresPermission('admin'), async ctx => {
 		try {
-			const customer = await updateCustomer(ctx.params.id, { updatedBy: ctx.state.user.id, status: 'disabled' });
+			const customer = await updateCustomer(ctx.params.id, { updatedBy: ctx.state.user!.id, status: 'disabled' });
 
 			return (ctx.body = customer);
 		} catch (e) {
-			if (e.code === 'INVALID') throw ctx.throw(400);
+			if (isServiceError(e) && e.code === 'INVALID') throw ctx.throw(400);
 
-			throw ctx.throw(e);
+			if (e instanceof Error) throw ctx.throw(e);
+			throw e;
 		}
 	});
 
