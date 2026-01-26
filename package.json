@@ -10,6 +10,7 @@
 		"dev": "tsx watch --clear-screen=false lib/index.ts",
 		"build": "rm -rf dist && tsc",
 		"test": "eslint . && prettier --check . && tsc --noEmit",
+		"format": "prettier --write .",
 		"start": "node .",
 		"check:updates": "ncu",
 		"update:packages": "ncu -u"

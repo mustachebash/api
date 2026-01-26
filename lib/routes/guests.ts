@@ -25,7 +25,7 @@ guestsRouter
 		if (!isRecordLike(ctx.request.body)) throw ctx.throw(400);
 
 		try {
-			const guest = await createGuest({ ...ctx.request.body as Record<string, unknown>, createdBy: ctx.state.user!.id, createdReason: 'comp' });
+			const guest = await createGuest({ ...(ctx.request.body as Record<string, unknown>), createdBy: ctx.state.user!.id, createdReason: 'comp' });
 
 			ctx.set('Location', `https://${ctx.host}${ctx.path}/${guest.id}`);
 			ctx.status = 201;
