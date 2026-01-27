@@ -1,7 +1,8 @@
 import Router from '@koa/router';
 import { authorizeUser, requiresPermission } from '../middleware/auth.js';
 import { getEvents, getEvent, createEvent, updateEvent, getEventSummary, getOpeningSales, getEventExtendedStats, getEventDailyTickets, getEventCheckins } from '../services/events.js';
-import { isRecordLike, isServiceError } from '../utils/type-guards.js';
+import { isServiceError } from '../utils/type-guards.js';
+import { validateEventCreate, validateEventUpdate } from '../utils/validation.js';
 import { AppContext } from '../index.js';
 
 const eventsRouter = new Router<AppContext['state'], AppContext>({
@@ -22,14 +23,15 @@ eventsRouter
 		}
 	})
 	.post('/', requiresPermission('admin'), async ctx => {
-		if (!isRecordLike(ctx.request.body)) throw ctx.throw(400);
+		const validation = validateEventCreate(ctx.request.body);
+		if (!validation.valid) throw ctx.throw(400, validation.error, { expose: false });
 
 		try {
-			const event = await createEvent(ctx.request.body);
+			const event = await createEvent(validation.data);
 
 			return (ctx.body = event);
 		} catch (e) {
-			if (isServiceError(e) && e.code === 'INVALID') throw ctx.throw(400);
+			if (isServiceError(e) && e.code === 'INVALID') throw ctx.throw(400, e, { expose: false });
 
 			if (e instanceof Error) throw ctx.throw(e);
 			throw e;
@@ -50,14 +52,15 @@ eventsRouter
 		}
 	})
 	.patch('/:id', requiresPermission('admin'), async ctx => {
-		if (!isRecordLike(ctx.request.body)) throw ctx.throw(400);
+		const validation = validateEventUpdate(ctx.request.body);
+		if (!validation.valid) throw ctx.throw(400, validation.error, { expose: false });
 
 		try {
-			const event = await updateEvent(ctx.params.id, { ...ctx.request.body, updatedBy: ctx.state.user!.id });
+			const event = await updateEvent(ctx.params.id, { ...validation.data, updatedBy: ctx.state.user!.id });
 
 			return (ctx.body = event);
 		} catch (e) {
-			if (isServiceError(e) && e.code === 'INVALID') throw ctx.throw(400);
+			if (isServiceError(e) && e.code === 'INVALID') throw ctx.throw(400, e, { expose: false });
 
 			if (e instanceof Error) throw ctx.throw(e);
 			throw e;

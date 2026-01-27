@@ -159,7 +159,7 @@ export async function getOrders({
 	}
 }
 
-type OrderInput = {
+export type OrderInput = {
 	paymentMethodNonce: string;
 
 	cart: {

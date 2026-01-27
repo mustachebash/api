@@ -1,7 +1,8 @@
 import Router from '@koa/router';
 import { authorizeUser } from '../middleware/auth.js';
 import { createProduct, getProducts, getProduct, updateProduct } from '../services/products.js';
-import { isRecordLike, isServiceError } from '../utils/type-guards.js';
+import { isServiceError } from '../utils/type-guards.js';
+import { validateProductCreate, validateProductUpdate } from '../utils/validation.js';
 import { AppContext } from '../index.js';
 
 const productsRouter = new Router<AppContext['state'], AppContext>({
@@ -22,16 +23,17 @@ productsRouter
 		}
 	})
 	.post('/', async ctx => {
-		if (!isRecordLike(ctx.request.body)) throw ctx.throw(400);
+		const validation = validateProductCreate(ctx.request.body);
+		if (!validation.valid) throw ctx.throw(400, validation.error, { expose: false });
 
 		try {
-			const product = await createProduct(ctx.request.body);
+			const product = await createProduct(validation.data);
 
 			ctx.set('Location', `https://${ctx.host}${ctx.path}/${product.id}`);
 			ctx.status = 201;
 			return (ctx.body = product);
 		} catch (e) {
-			if (isServiceError(e) && e.code === 'INVALID') throw ctx.throw(400, e);
+			if (isServiceError(e) && e.code === 'INVALID') throw ctx.throw(400, e, { expose: false });
 
 			if (e instanceof Error) throw ctx.throw(e);
 			throw e;
@@ -52,14 +54,15 @@ productsRouter
 		}
 	})
 	.patch('/:id', async ctx => {
-		if (!isRecordLike(ctx.request.body)) throw ctx.throw(400);
+		const validation = validateProductUpdate(ctx.request.body);
+		if (!validation.valid) throw ctx.throw(400, validation.error, { expose: false });
 
 		try {
-			const product = await updateProduct(ctx.params.id, { ...ctx.request.body, updatedBy: ctx.state.user!.id });
+			const product = await updateProduct(ctx.params.id, { ...validation.data, updatedBy: ctx.state.user!.id });
 
 			return (ctx.body = product);
 		} catch (e) {
-			if (isServiceError(e) && e.code === 'INVALID') throw ctx.throw(400);
+			if (isServiceError(e) && e.code === 'INVALID') throw ctx.throw(400, e, { expose: false });
 
 			if (e instanceof Error) throw ctx.throw(e);
 			throw e;

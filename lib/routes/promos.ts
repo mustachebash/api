@@ -2,7 +2,8 @@ import Router from '@koa/router';
 import { authorizeUser, requiresPermission } from '../middleware/auth.js';
 import { createPromo, getPromos, getPromo, updatePromo } from '../services/promos.js';
 import { getProduct } from '../services/products.js';
-import { isRecordLike, isServiceError } from '../utils/type-guards.js';
+import { isServiceError } from '../utils/type-guards.js';
+import { validatePromoCreate } from '../utils/validation.js';
 import { AppContext } from '../index.js';
 
 const promosRouter = new Router<AppContext['state'], AppContext>({
@@ -21,16 +22,17 @@ promosRouter
 		}
 	})
 	.post('/', authorizeUser, requiresPermission('write'), async ctx => {
-		if (!isRecordLike(ctx.request.body)) throw ctx.throw(400);
+		const validation = validatePromoCreate(ctx.request.body);
+		if (!validation.valid) throw ctx.throw(400, validation.error, { expose: false });
 
 		try {
-			const promo = await createPromo({ ...ctx.request.body, createdBy: ctx.state.user!.id });
+			const promo = await createPromo({ ...validation.data, createdBy: ctx.state.user!.id });
 
 			ctx.set('Location', `https://${ctx.host}${ctx.path}/${promo.id}`);
 			ctx.status = 201;
 			return (ctx.body = promo);
 		} catch (e) {
-			if (isServiceError(e) && e.code === 'INVALID') throw ctx.throw(400);
+			if (isServiceError(e) && e.code === 'INVALID') throw ctx.throw(400, e, { expose: false });
 
 			if (e instanceof Error) throw ctx.throw(e);
 			throw e;
@@ -53,12 +55,15 @@ promosRouter
 				// if the product is no longer available, return 410 GONE
 				if (product.status !== 'active') throw ctx.throw(410);
 
-				promo.product = {
-					id: product.id,
-					price: product.price,
-					description: product.description,
-					name: product.name
-				};
+				return (ctx.body = {
+					...promo,
+					product: {
+						id: product.id,
+						price: product.price,
+						description: product.description,
+						name: product.name
+					}
+				});
 			}
 
 			return (ctx.body = promo);

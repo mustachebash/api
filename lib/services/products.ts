@@ -25,7 +25,7 @@ const productColumns = ['id', 'status', 'type', 'name', 'description', 'admissio
 
 const convertPriceToNumber = (p: ProductRow): Product => ({ ...p, price: Number(p.price) });
 
-type ProductType = 'ticket' | 'upgrade' | 'bundle-ticket' | 'accomodation';
+export type ProductType = 'ticket' | 'upgrade' | 'bundle-ticket' | 'accomodation';
 export type Product = {
 	id: string;
 	status?: string;

@@ -41,7 +41,7 @@ export type Guest = {
 
 const guestColumns = ['id', 'first_name', 'last_name', 'admission_tier', 'created', 'updated', 'updated_by', 'created_by', 'created_reason', 'status', 'check_in_time', 'order_id', 'event_id', 'meta'];
 
-type GuestInput = {
+export type GuestInput = {
 	firstName: string;
 	lastName: string;
 	createdReason: 'purchase' | 'comp' | 'transfer';
