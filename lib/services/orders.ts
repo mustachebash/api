@@ -159,7 +159,7 @@ export async function getOrders({
 	}
 }
 
-type OrderInput = {
+export type OrderInput = {
 	paymentMethodNonce: string;
 
 	cart: {
@@ -562,8 +562,15 @@ export async function generateOrderToken(id: string): Promise<string> {
 	);
 }
 
-export function validateOrderToken(token: string) {
-	return jwt.verify(token, orderSecret, { issuer: 'mustachebash' });
+export type OrderToken = {
+	iss: string;
+	aud: string;
+	iat: number;
+	sub: string;
+};
+
+export function validateOrderToken(token: string): OrderToken {
+	return jwt.verify(token, orderSecret, { issuer: 'mustachebash' }) as OrderToken;
 }
 
 export async function getOrder(id: string): Promise<OrderWithItems> {

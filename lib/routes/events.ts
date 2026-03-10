@@ -1,9 +1,11 @@
 import Router from '@koa/router';
 import { authorizeUser, requiresPermission } from '../middleware/auth.js';
 import { getEvents, getEvent, createEvent, updateEvent, getEventSummary, getOpeningSales, getEventExtendedStats, getEventDailyTickets, getEventCheckins } from '../services/events.js';
-import { isRecordLike } from '../utils/type-guards.js';
+import { isServiceError } from '../utils/type-guards.js';
+import { validateEventCreate, validateEventUpdate } from '../utils/validation.js';
+import { AppContext } from '../index.js';
 
-const eventsRouter = new Router({
+const eventsRouter = new Router<AppContext['state'], AppContext>({
 	prefix: '/events'
 });
 
@@ -16,20 +18,23 @@ eventsRouter
 
 			return (ctx.body = events);
 		} catch (e) {
-			throw ctx.throw(e);
+			if (e instanceof Error) throw ctx.throw(e);
+			throw e;
 		}
 	})
 	.post('/', requiresPermission('admin'), async ctx => {
-		if (!isRecordLike(ctx.request.body)) throw ctx.throw(400);
+		const validation = validateEventCreate(ctx.request.body);
+		if (!validation.valid) throw ctx.throw(400, validation.error, { expose: false });
 
 		try {
-			const event = await createEvent(ctx.request.body);
+			const event = await createEvent(validation.data);
 
 			return (ctx.body = event);
 		} catch (e) {
-			if (e.code === 'INVALID') throw ctx.throw(400);
+			if (isServiceError(e) && e.code === 'INVALID') throw ctx.throw(400, e, { expose: false });
 
-			throw ctx.throw(e);
+			if (e instanceof Error) throw ctx.throw(e);
+			throw e;
 		}
 	});
 
@@ -40,22 +45,25 @@ eventsRouter
 
 			return (ctx.body = event);
 		} catch (e) {
-			if (e.code === 'NOT_FOUND') throw ctx.throw(404);
+			if (isServiceError(e) && e.code === 'NOT_FOUND') throw ctx.throw(404);
 
-			throw ctx.throw(e);
+			if (e instanceof Error) throw ctx.throw(e);
+			throw e;
 		}
 	})
 	.patch('/:id', requiresPermission('admin'), async ctx => {
-		if (!isRecordLike(ctx.request.body)) throw ctx.throw(400);
+		const validation = validateEventUpdate(ctx.request.body);
+		if (!validation.valid) throw ctx.throw(400, validation.error, { expose: false });
 
 		try {
-			const event = await updateEvent(ctx.params.id, { ...ctx.request.body, updatedBy: ctx.state.user.id });
+			const event = await updateEvent(ctx.params.id, { ...validation.data, updatedBy: ctx.state.user!.id });
 
 			return (ctx.body = event);
 		} catch (e) {
-			if (e.code === 'INVALID') throw ctx.throw(400);
+			if (isServiceError(e) && e.code === 'INVALID') throw ctx.throw(400, e, { expose: false });
 
-			throw ctx.throw(e);
+			if (e instanceof Error) throw ctx.throw(e);
+			throw e;
 		}
 	});
 
@@ -67,7 +75,8 @@ eventsRouter.get('/:id/summary', async ctx => {
 
 		return (ctx.body = eventSummary);
 	} catch (e) {
-		throw ctx.throw(e);
+		if (e instanceof Error) throw ctx.throw(e);
+		throw e;
 	}
 });
 
@@ -79,7 +88,8 @@ eventsRouter.get('/:id/extended-stats', async ctx => {
 
 		return (ctx.body = eventExtendedStats);
 	} catch (e) {
-		throw ctx.throw(e);
+		if (e instanceof Error) throw ctx.throw(e);
+		throw e;
 	}
 });
 
@@ -106,7 +116,8 @@ eventsRouter.get('/:id/chart', async ctx => {
 
 		return (ctx.body = chartData);
 	} catch (e) {
-		throw ctx.throw(e);
+		if (e instanceof Error) throw ctx.throw(e);
+		throw e;
 	}
 });
 

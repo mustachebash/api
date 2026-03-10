@@ -21,7 +21,7 @@ class PromoServiceError extends Error {
 	}
 }
 
-type PromoType = 'single-use' | 'coupon';
+export type PromoType = 'single-use' | 'coupon';
 export type Promo = {
 	id: string;
 	created: Date;
@@ -68,7 +68,7 @@ const convertPriceAndDiscountsToNumbers = ({ price, percentDiscount, flatDiscoun
 	...(flatDiscount !== undefined ? { flatDiscount: Number(flatDiscount) } : {})
 });
 
-type PromoInput = {
+export type PromoInput = {
 	price?: number;
 	flatDiscount?: number;
 	percentDiscount?: number;

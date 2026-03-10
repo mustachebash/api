@@ -99,12 +99,15 @@ apiRouter
 		// Use the order token as authorization
 		validateOrderToken(ctx.request.body.orderToken);
 
-		const selectedTickets = ctx.request.body.tickets,
-			transferee = ctx.request.body.transferee,
+		if (!Array.isArray(ctx.request.body.tickets)) throw ctx.throw(400);
+		if (!isRecordLike(ctx.request.body.transferee)) throw ctx.throw(400);
+
+		const selectedTickets = ctx.request.body.tickets as Array<{ orderId: string; id: string }>,
+			transferee = ctx.request.body.transferee as { email: string; firstName: string; lastName: string },
 			orderIds = new Set<string>(selectedTickets.map(ticket => ticket.orderId));
 
-		const newOrderTokens = [],
-			parentOrderIds = [];
+		const newOrderTokens: string[] = [],
+			parentOrderIds: string[] = [];
 		for (const orderId of orderIds.values()) {
 			const guestIds = selectedTickets.filter(ticket => ticket.orderId === orderId).map(ticket => ticket.id);
 			try {
@@ -118,10 +121,11 @@ apiRouter
 					ctx.state.log.error(e, 'Error creating order token');
 				}
 			} catch (e) {
-				if (e.code === 'INVALID') throw ctx.throw(400, e, { expose: false });
-				if (e.code === 'NOT_FOUND') throw ctx.throw(404);
+				if (isServiceError(e) && e.code === 'INVALID') throw ctx.throw(400, e, { expose: false });
+				if (isServiceError(e) && e.code === 'NOT_FOUND') throw ctx.throw(404);
 
-				throw ctx.throw(e);
+				if (e instanceof Error) throw ctx.throw(e);
+				throw e;
 			}
 		}
 
@@ -142,17 +146,18 @@ apiRouter.get('/event-settings/:eventId', async ctx => {
 
 		return (ctx.body = eventSettings);
 	} catch (e) {
-		if (e.code === 'NOT_FOUND') throw ctx.throw(404);
+		if (isServiceError(e) && e.code === 'NOT_FOUND') throw ctx.throw(404);
 
-		throw ctx.throw(e);
+		if (e instanceof Error) throw ctx.throw(e);
+		throw e;
 	}
 });
 
 apiRouter.post('/check-ins', authorizeUser, requiresPermission('doorman'), async ctx => {
-	if (!ctx.request.body.ticketToken) throw ctx.throw(400);
+	if (!isRecordLike(ctx.request.body) || !ctx.request.body.ticketToken) throw ctx.throw(400);
 
 	try {
-		const response = await checkInWithTicket(ctx.request.body.ticketToken, ctx.state.user.id);
+		const response = await checkInWithTicket(ctx.request.body.ticketToken as string, ctx.state.user!.id);
 
 		return (ctx.body = response);
 	} catch (e) {
@@ -176,15 +181,16 @@ apiRouter.post('/check-ins', authorizeUser, requiresPermission('doorman'), async
 			}
 		}
 
-		throw ctx.throw(e);
+		if (e instanceof Error) throw ctx.throw(e);
+		throw e;
 	}
 });
 
 apiRouter.post('/inspect', authorizeUser, requiresPermission('doorman'), async ctx => {
-	if (!ctx.request.body.ticketToken) throw ctx.throw(400);
+	if (!isRecordLike(ctx.request.body) || !ctx.request.body.ticketToken) throw ctx.throw(400);
 
 	try {
-		const response = await inspectTicket(ctx.request.body.ticketToken);
+		const response = await inspectTicket(ctx.request.body.ticketToken as string);
 
 		return (ctx.body = response);
 	} catch (e) {
@@ -192,7 +198,8 @@ apiRouter.post('/inspect', authorizeUser, requiresPermission('doorman'), async c
 			if (e.code === 'TICKET_NOT_FOUND') throw ctx.throw(404);
 		}
 
-		throw ctx.throw(e);
+		if (e instanceof Error) throw ctx.throw(e);
+		throw e;
 	}
 });
 
@@ -212,9 +219,10 @@ apiRouter.post('/authenticate', async ctx => {
 
 		return (ctx.body = user);
 	} catch (e) {
-		if (e.code === 'UNAUTHORIZED') throw ctx.throw(401);
+		if (isServiceError(e) && e.code === 'UNAUTHORIZED') throw ctx.throw(401);
 
-		throw ctx.throw(e);
+		if (e instanceof Error) throw ctx.throw(e);
+		throw e;
 	}
 });
 
@@ -229,9 +237,10 @@ apiRouter.post('/refresh-access-token', async ctx => {
 		ctx.status = 201;
 		return (ctx.body = { accessToken });
 	} catch (e) {
-		if (e.code === 'UNAUTHORIZED') throw ctx.throw(403);
+		if (isServiceError(e) && e.code === 'UNAUTHORIZED') throw ctx.throw(403);
 
-		throw ctx.throw(e);
+		if (e instanceof Error) throw ctx.throw(e);
+		throw e;
 	}
 });
 

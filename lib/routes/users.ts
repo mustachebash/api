@@ -1,8 +1,9 @@
 import Router from '@koa/router';
 import { authorizeUser } from '../middleware/auth.js';
 import { getUsers, getUser } from '../services/auth.js';
+import { AppContext } from '../index.js';
 
-const usersRouter = new Router({
+const usersRouter = new Router<AppContext['state'], AppContext>({
 	prefix: '/users'
 });
 
@@ -14,7 +15,8 @@ usersRouter.get('/', async ctx => {
 
 		return (ctx.body = users);
 	} catch (e) {
-		throw ctx.throw(e);
+		if (e instanceof Error) throw ctx.throw(e);
+		throw e;
 	}
 });
 
@@ -27,7 +29,8 @@ usersRouter.get('/:id', async ctx => {
 		delete user.password;
 		return (ctx.body = user);
 	} catch (e) {
-		throw ctx.throw(e);
+		if (e instanceof Error) throw ctx.throw(e);
+		throw e;
 	}
 });
 

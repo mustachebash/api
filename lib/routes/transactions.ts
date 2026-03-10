@@ -1,8 +1,10 @@
 import Router from '@koa/router';
 import { authorizeUser } from '../middleware/auth.js';
 import { getTransactions, getTransaction, getTransactionProcessorDetails } from '../services/transactions.js';
+import { AppContext } from '../index.js';
+import { isServiceError } from '../utils/type-guards.js';
 
-const transactionsRouter = new Router({
+const transactionsRouter = new Router<AppContext['state'], AppContext>({
 	prefix: '/transactions'
 });
 
@@ -12,7 +14,8 @@ transactionsRouter.get('/', authorizeUser, async ctx => {
 
 		return (ctx.body = transactions);
 	} catch (e) {
-		throw ctx.throw(e);
+		if (e instanceof Error) throw ctx.throw(e);
+		throw e;
 	}
 });
 
@@ -24,7 +27,8 @@ transactionsRouter.get('/:id', authorizeUser, async ctx => {
 
 		return (ctx.body = transaction);
 	} catch (e) {
-		throw ctx.throw(e);
+		if (e instanceof Error) throw ctx.throw(e);
+		throw e;
 	}
 });
 
@@ -34,9 +38,10 @@ transactionsRouter.get('/:id/processor-details', authorizeUser, async ctx => {
 
 		return (ctx.body = processorDetails);
 	} catch (e) {
-		if (e.code === 'NOT_FOUND') throw ctx.throw(404);
+		if (isServiceError(e) && e.code === 'NOT_FOUND') throw ctx.throw(404);
 
-		throw ctx.throw(e);
+		if (e instanceof Error) throw ctx.throw(e);
+		throw e;
 	}
 });
 

@@ -1,5 +1,4 @@
-import { Next } from 'koa';
-import { AppContext } from '../index.js';
+import { AppContext, Next } from '../index.js';
 import { validateAccessToken, checkScope } from '../services/auth.js';
 
 export async function authorizeUser(ctx: AppContext, next: Next) {
