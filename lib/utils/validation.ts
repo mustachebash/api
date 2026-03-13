@@ -520,8 +520,8 @@ export function validatePromoCreate(body: unknown): ValidationResult<PromoCreate
 		return { valid: false, error: 'productId is required and must be a string' };
 	}
 
-	if (!isRecordLike(body.meta)) {
-		return { valid: false, error: 'meta is required and must be an object' };
+	if (body.meta !== undefined && !isRecordLike(body.meta)) {
+		return { valid: false, error: 'meta must be an object if provided' };
 	}
 
 	// Conditional requirements for single-use
@@ -542,7 +542,7 @@ export function validatePromoCreate(body: unknown): ValidationResult<PromoCreate
 	const data: PromoCreateInput = {
 		type: body.type,
 		productId: body.productId,
-		meta: body.meta as Record<string, unknown>
+		meta: body.meta === undefined ? {} : (body.meta as Record<string, unknown>)
 	};
 
 	// Optional/conditional fields
