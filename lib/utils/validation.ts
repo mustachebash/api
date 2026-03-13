@@ -532,6 +532,14 @@ export function validatePromoCreate(body: unknown): ValidationResult<PromoCreate
 		if (!isString(body.recipientName) || body.recipientName.trim() === '') {
 			return { valid: false, error: 'recipientName is required for single-use promos and must be a non-empty string' };
 		}
+		if (body.price === 0) {
+			if (!isString(body.recipientEmail) || body.recipientEmail.trim() === '') {
+				return { valid: false, error: 'recipientEmail is required for comp (price 0) single-use promos' };
+			}
+			if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.recipientEmail)) {
+				return { valid: false, error: 'recipientEmail must be a valid email address' };
+			}
+		}
 		if (body.productQuantity !== undefined) {
 			if (!isNumber(body.productQuantity) || body.productQuantity < 1 || body.productQuantity > 5) {
 				return { valid: false, error: 'productQuantity must be a number between 1 and 5 for single-use promos' };
@@ -580,6 +588,10 @@ export function validatePromoCreate(body: unknown): ValidationResult<PromoCreate
 
 	if (body.recipientName !== undefined) {
 		data.recipientName = body.recipientName as string;
+	}
+
+	if (body.recipientEmail !== undefined) {
+		data.recipientEmail = body.recipientEmail as string;
 	}
 
 	return { valid: true, data };
