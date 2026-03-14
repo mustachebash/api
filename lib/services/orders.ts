@@ -43,7 +43,7 @@ export type Order = {
 	customerId: string;
 	promoId: string | null;
 	parentOrderId: string | null;
-	status: 'complete' | 'canceled' | 'transferred' | 'comp';
+	status: 'complete' | 'canceled' | 'transferred' | 'comped';
 	meta: Record<string, unknown>;
 };
 
@@ -728,7 +728,7 @@ export async function createCompOrder({ promo }: { promo: Promo }): Promise<{ or
 	const order = {
 		id: orderId,
 		customerId: dbCustomer.id,
-		status: 'comp',
+		status: 'comped',
 		amount: 0,
 		promoId: promo.id
 	};
