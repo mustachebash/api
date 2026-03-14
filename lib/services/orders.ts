@@ -8,7 +8,7 @@ import { v4 as uuidV4 } from 'uuid';
 import log from '../utils/log.js';
 import { sql } from '../utils/db.js';
 import { createGuest, updateGuest } from '../services/guests.js';
-import type { Product } from '../services/products.js';
+import { getProduct, type Product } from '../services/products.js';
 import type { Promo } from '../services/promos.js';
 import { braintree as btConfig, jwt as jwtConfig } from '../config.js';
 
@@ -43,7 +43,7 @@ export type Order = {
 	customerId: string;
 	promoId: string | null;
 	parentOrderId: string | null;
-	status: 'complete' | 'canceled' | 'transferred';
+	status: 'complete' | 'canceled' | 'transferred' | 'comped';
 	meta: Record<string, unknown>;
 };
 
@@ -694,4 +694,79 @@ export async function refundOrder(id: string): Promise<void> {
 	} catch (e) {
 		throw new OrdersServiceError('Order voiding failed', 'UNKNOWN', e);
 	}
+}
+
+export async function createCompOrder({ promo }: { promo: Promo }): Promise<{ orderId: string; orderToken: string }> {
+	if (!promo.recipientEmail || !promo.recipientName) throw new OrdersServiceError('Comp order requires recipientEmail and recipientName on promo', 'INVALID');
+
+	const nameParts = promo.recipientName.trim().split(' ');
+	const firstName = nameParts[0];
+	const lastName = nameParts.slice(1).join(' ') || '-';
+
+	const normalizedEmail = promo.recipientEmail.toLowerCase().trim();
+	let dbCustomer;
+	[dbCustomer] = await sql`
+		SELECT *
+		FROM customers
+		WHERE email = ${normalizedEmail}
+	`;
+
+	if (!dbCustomer) {
+		const newCustomer = {
+			id: uuidV4(),
+			firstName,
+			lastName,
+			email: normalizedEmail
+		};
+		[dbCustomer] = await sql`
+			INSERT INTO customers ${sql(newCustomer)}
+			RETURNING *
+		`;
+	}
+
+	const orderId = uuidV4();
+	const order = {
+		id: orderId,
+		customerId: dbCustomer.id,
+		status: 'comped',
+		amount: 0,
+		promoId: promo.id
+	};
+
+	const orderItem = {
+		orderId,
+		productId: promo.productId,
+		quantity: promo.productQuantity ?? 1
+	};
+
+	await sql`INSERT INTO orders ${sql(order)}`;
+	await sql`INSERT INTO order_items ${sql(orderItem)}`;
+
+	const product = await getProduct(promo.productId);
+
+	const quantity = promo.productQuantity ?? 1;
+	for (let j = 0; j < quantity; j++) {
+		try {
+			await createGuest({
+				firstName,
+				lastName: lastName + (j > 0 ? ` Guest ${j}` : ''),
+				createdReason: 'purchase',
+				orderId,
+				eventId: product.eventId,
+				admissionTier: product.admissionTier
+			});
+		} catch (e) {
+			log.error(e, 'Error creating comp guest');
+		}
+	}
+
+	await sql`
+		UPDATE promos
+		SET status = 'claimed', updated = now()
+		WHERE id = ${promo.id}
+	`;
+
+	const orderToken = await generateOrderToken(orderId);
+
+	return { orderId, orderToken };
 }

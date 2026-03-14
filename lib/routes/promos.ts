@@ -1,10 +1,15 @@
 import Router from '@koa/router';
 import { authorizeUser, requiresPermission } from '../middleware/auth.js';
 import { createPromo, getPromos, getPromo, updatePromo } from '../services/promos.js';
+import { createCompOrder } from '../services/orders.js';
 import { getProduct } from '../services/products.js';
+import { sendCompReceipt, upsertEmailSubscriber } from '../services/email.js';
 import { isServiceError } from '../utils/type-guards.js';
 import { validatePromoCreate } from '../utils/validation.js';
 import { AppContext } from '../index.js';
+
+const EMAIL_LIST = '90392ecd5e',
+	EMAIL_TAG = 'Mustache Bash 2026 Attendee';
 
 const promosRouter = new Router<AppContext['state'], AppContext>({
 	prefix: '/promos'
@@ -27,6 +32,20 @@ promosRouter
 
 		try {
 			const promo = await createPromo({ ...validation.data, createdBy: ctx.state.user!.id });
+
+			if (promo.type === 'single-use' && promo.price === 0 && promo.recipientEmail) {
+				const nameParts = (promo.recipientName ?? '').trim().split(' ');
+				const firstName = nameParts[0];
+				const lastName = nameParts.slice(1).join(' ') || '-';
+
+				try {
+					const { orderToken } = await createCompOrder({ promo });
+					sendCompReceipt(firstName, lastName, promo.recipientEmail, orderToken);
+					upsertEmailSubscriber(EMAIL_LIST, { email: promo.recipientEmail, firstName, lastName, tags: [EMAIL_TAG] });
+				} catch (e) {
+					ctx.state.log.error(e, 'Error creating comp order');
+				}
+			}
 
 			ctx.set('Location', `https://${ctx.host}${ctx.path}/${promo.id}`);
 			ctx.status = 201;

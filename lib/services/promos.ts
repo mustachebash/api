@@ -32,6 +32,7 @@ export type Promo = {
 	productId: string;
 	productQuantity?: number;
 	recipientName?: string;
+	recipientEmail?: string;
 	maxUses?: number;
 	status: string;
 	type: PromoType;
@@ -56,6 +57,7 @@ const promoColumns = [
 	'product_id',
 	'product_quantity',
 	'recipient_name',
+	'recipient_email',
 	'status',
 	'type',
 	'meta'
@@ -77,16 +79,18 @@ export type PromoInput = {
 	productQuantity?: number;
 	maxUses?: number;
 	recipientName?: string;
+	recipientEmail?: string;
 	meta: Record<string, unknown>;
 	createdBy: string;
 };
 type PromoInsert = Omit<Promo, 'created' | 'updated'>;
-export async function createPromo({ price, flatDiscount, percentDiscount, maxUses, type, productId, productQuantity = 1, recipientName, meta, createdBy }: PromoInput) {
+export async function createPromo({ price, flatDiscount, percentDiscount, maxUses, type, productId, productQuantity = 1, recipientName, recipientEmail, meta, createdBy }: PromoInput) {
 	if (!productId || !type) throw new PromoServiceError('Missing promo data', 'INVALID');
 	if (type === 'single-use') {
 		if (typeof productQuantity !== 'number' || productQuantity < 1 || productQuantity > 5) throw new PromoServiceError('Invalid product quantity for single-use promo', 'INVALID');
-		if (!price || !recipientName) throw new PromoServiceError('Single use promos require price and recipient', 'INVALID');
 		if (typeof price !== 'number') throw new PromoServiceError('Price must be a number', 'INVALID');
+		if (!recipientName) throw new PromoServiceError('Single use promos require a recipient name', 'INVALID');
+		if (price === 0 && !recipientEmail) throw new PromoServiceError('Comp promos (price 0) require a recipient email', 'INVALID');
 	}
 
 	const promo: PromoInsert = {
@@ -104,6 +108,7 @@ export async function createPromo({ price, flatDiscount, percentDiscount, maxUse
 		promo.price = price;
 		promo.recipientName = recipientName;
 		promo.productQuantity = productQuantity;
+		if (recipientEmail) promo.recipientEmail = recipientEmail;
 	}
 
 	if (type === 'coupon') {
