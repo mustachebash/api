@@ -66,6 +66,7 @@ export type TicketInspection = {
 	id: string;
 	firstName: string;
 	lastName: string;
+	created: Date;
 	status: string;
 	orderId: string;
 	createdReason?: string;
@@ -420,6 +421,7 @@ export async function inspectTicket(ticketToken: string): Promise<TicketInspecti
 				g.id,
 				g.first_name,
 				g.last_name,
+				g.created,
 				g.status,
 				g.order_id,
 				g.created_reason,
