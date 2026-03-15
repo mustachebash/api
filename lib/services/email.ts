@@ -372,14 +372,14 @@ export function sendCompReceipt(guestFirstName: string, guestLastName: string, g
 		.send({
 			from: 'Mustache Bash Tickets <contact@mustachebash.com>',
 			to: guestFirstName + ' ' + guestLastName + ' <' + guestEmail + '> ',
-			subject: 'Your Complimentary Ticket for Mustache Bash',
+			subject: 'Your Complimentary Ticket(s) for Mustache Bash',
 			html: `
 <!doctype html>
 <html>
 	<head>
 		<meta name="viewport" content="width=device-width">
 		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-		<title>Your Complimentary Mustache Bash Ticket</title>
+		<title>Your Complimentary Mustache Bash Ticket(s)</title>
 		<style>
 @media only screen and (max-width: 620px) {
 	table[class=body] h1 {
@@ -454,7 +454,7 @@ table[class=body] .article {
 					<div class="content" style="box-sizing: border-box; display: block; margin: 0 auto; max-width: 580px; padding: 10px;">
 
 						<!-- START CENTERED WHITE CONTAINER -->
-						<span class="preheader" style="color: transparent; display: none; height: 0; max-height: 0; max-width: 0; opacity: 0; overflow: hidden; mso-hide: all; visibility: hidden; width: 0;">Your complimentary ticket to The Mustache Bash San Diego is here!</span>
+						<span class="preheader" style="color: transparent; display: none; height: 0; max-height: 0; max-width: 0; opacity: 0; overflow: hidden; mso-hide: all; visibility: hidden; width: 0;">Your complimentary ticket(s) to The Mustache Bash San Diego is here!</span>
 						<table role="presentation" class="main" style="border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; background: #ffffff; border-radius: 3px; width: 100%;" width="100%">
 
 							<!-- START MAIN CONTENT AREA -->
