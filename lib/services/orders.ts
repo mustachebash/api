@@ -43,7 +43,7 @@ export type Order = {
 	customerId: string;
 	promoId: string | null;
 	parentOrderId: string | null;
-	status: 'complete' | 'canceled' | 'transferred' | 'comped';
+	status: 'complete' | 'canceled' | 'transferred';
 	meta: Record<string, unknown>;
 };
 
@@ -623,6 +623,7 @@ export async function refundOrder(id: string): Promise<void> {
 		[order] = await sql`
 			SELECT
 				o.status AS order_status,
+				o.amount,
 				t.id AS transaction_id,
 				t.type AS transaction_type,
 				t.processor_transaction_id,
@@ -640,6 +641,27 @@ export async function refundOrder(id: string): Promise<void> {
 
 	if (!order) throw new OrdersServiceError('Order not found', 'NOT_FOUND');
 	if (order.orderStatus !== 'complete') throw new OrdersServiceError(`Cannot refund order with status: ${order.orderStatus}`, 'REFUND_NOT_ALLOWED');
+
+	// Zero-amount orders (comps) have no Braintree transaction — skip the processor step and just cancel
+	if (Number(order.amount) === 0) {
+		try {
+			await Promise.all([
+				sql`
+					UPDATE orders
+					SET status = 'canceled'
+					WHERE id = ${id}
+				`,
+				sql`
+					UPDATE guests
+					SET status = 'archived', updated = now()
+					WHERE order_id = ${id}
+				`
+			]);
+		} catch (e) {
+			throw new OrdersServiceError('Order cancellation failed', 'UNKNOWN', e);
+		}
+		return;
+	}
 
 	const newTransaction = {
 		id: uuidV4(),
@@ -728,7 +750,7 @@ export async function createCompOrder({ promo }: { promo: Promo }): Promise<{ or
 	const order = {
 		id: orderId,
 		customerId: dbCustomer.id,
-		status: 'comped',
+		status: 'complete',
 		amount: 0,
 		promoId: promo.id
 	};
@@ -750,7 +772,7 @@ export async function createCompOrder({ promo }: { promo: Promo }): Promise<{ or
 			await createGuest({
 				firstName,
 				lastName: lastName + (j > 0 ? ` Guest ${j}` : ''),
-				createdReason: 'purchase',
+				createdReason: 'comp',
 				orderId,
 				eventId: product.eventId,
 				admissionTier: product.admissionTier
