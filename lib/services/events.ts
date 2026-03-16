@@ -400,6 +400,7 @@ export async function getEventDailyTickets(id: string): Promise<{ date: Date; ti
 				ON oi.product_id = p.id
 			WHERE p.event_id = ${id}
 			AND o.status != 'canceled'
+			AND o.amount > 0
 			GROUP BY date
 			ORDER BY 1 ASC;
 		`
