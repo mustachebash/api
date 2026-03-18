@@ -541,8 +541,8 @@ export function validatePromoCreate(body: unknown): ValidationResult<PromoCreate
 			}
 		}
 		if (body.productQuantity !== undefined) {
-			if (!isNumber(body.productQuantity) || body.productQuantity < 1 || body.productQuantity > 5) {
-				return { valid: false, error: 'productQuantity must be a number between 1 and 5 for single-use promos' };
+			if (!isNumber(body.productQuantity) || body.productQuantity < 1) {
+				return { valid: false, error: 'productQuantity must be a number greater than or equal to 1 for single-use promos' };
 			}
 		}
 	}

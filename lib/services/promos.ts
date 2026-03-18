@@ -87,7 +87,7 @@ type PromoInsert = Omit<Promo, 'created' | 'updated'>;
 export async function createPromo({ price, flatDiscount, percentDiscount, maxUses, type, productId, productQuantity = 1, recipientName, recipientEmail, meta, createdBy }: PromoInput) {
 	if (!productId || !type) throw new PromoServiceError('Missing promo data', 'INVALID');
 	if (type === 'single-use') {
-		if (typeof productQuantity !== 'number' || productQuantity < 1 || productQuantity > 5) throw new PromoServiceError('Invalid product quantity for single-use promo', 'INVALID');
+		if (typeof productQuantity !== 'number' || productQuantity < 1) throw new PromoServiceError('Invalid product quantity for single-use promo', 'INVALID');
 		if (typeof price !== 'number') throw new PromoServiceError('Price must be a number', 'INVALID');
 		if (!recipientName) throw new PromoServiceError('Single use promos require a recipient name', 'INVALID');
 		if (price === 0 && !recipientEmail) throw new PromoServiceError('Comp promos (price 0) require a recipient email', 'INVALID');
