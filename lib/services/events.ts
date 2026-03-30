@@ -306,67 +306,137 @@ export async function getEventExtendedStats(id: string): Promise<EventExtendedSt
 	try {
 		const [extendedStats] = (
 			await sql<EventExtendedStatsRow[]>`
-			WITH ProductAggregation AS (
+				WITH ValidOrders AS (
+					SELECT
+						o.id,
+						o.amount,
+						o.promo_id,
+						o.created
+					FROM orders AS o
+					WHERE (o.status = 'complete' OR (o.status = 'transferred' AND o.amount <> 0))
+						AND o.amount IS NOT NULL
+				),
+				OrderItemsWithEffectivePricing AS (
+					SELECT
+						vo.id AS order_id,
+						vo.amount,
+						vo.promo_id,
+						vo.created,
+						p.event_id,
+						p.name,
+						p.price,
+						p.promo,
+						i.quantity,
+						CASE
+							WHEN vo.promo_id IS NOT NULL AND pr.product_id = p.id THEN
+								CASE
+									WHEN pr.price IS NOT NULL THEN pr.price
+									WHEN pr.flat_discount IS NOT NULL THEN GREATEST(p.price - pr.flat_discount, 0)
+									WHEN pr.percent_discount IS NOT NULL THEN ROUND((p.price - (p.price * (pr.percent_discount / 100)))::numeric, 2)
+									ELSE p.price
+								END
+							ELSE p.price
+						END AS effective_price
+					FROM ValidOrders AS vo
+					JOIN order_items AS i
+						ON i.order_id = vo.id
+					JOIN products AS p
+						ON p.id = i.product_id
+					LEFT JOIN promos AS pr
+						ON pr.id = vo.promo_id
+					WHERE p.admission_tier IN ('general', 'vip')
+				),
+				OrderEffectiveSubtotals AS (
+					SELECT
+						order_id,
+						SUM(effective_price * quantity) AS order_effective_subtotal
+					FROM OrderItemsWithEffectivePricing
+					GROUP BY order_id
+				),
+				EventOrderEffectiveSubtotals AS (
+					SELECT
+						event_id,
+						order_id,
+						SUM(effective_price * quantity) AS event_effective_subtotal
+					FROM OrderItemsWithEffectivePricing
+					GROUP BY event_id, order_id
+				),
+				EventAttributedOrderRevenue AS (
+					SELECT
+						eoes.event_id,
+						eoes.order_id,
+						vo.promo_id,
+						vo.created,
+						CASE
+							WHEN oes.order_effective_subtotal > 0 THEN vo.amount * (eoes.event_effective_subtotal / oes.order_effective_subtotal)
+							ELSE 0
+						END AS attributed_revenue
+					FROM EventOrderEffectiveSubtotals AS eoes
+					JOIN OrderEffectiveSubtotals AS oes
+						ON oes.order_id = eoes.order_id
+					JOIN ValidOrders AS vo
+						ON vo.id = eoes.order_id
+				),
+				ProductAggregation AS (
+					SELECT
+						event_id,
+						name,
+						price,
+						promo,
+						SUM(quantity) AS total_quantity
+					FROM OrderItemsWithEffectivePricing
+					WHERE event_id = ${id}
+					GROUP BY event_id, name, price, promo
+				),
+				OrdersAggregation AS (
+					SELECT
+						event_id,
+						SUM(attributed_revenue) FILTER (WHERE promo_id IS NULL) AS total_revenue,
+						SUM(attributed_revenue) FILTER (WHERE promo_id IS NOT NULL) AS total_promo_revenue
+					FROM EventAttributedOrderRevenue
+					WHERE event_id = ${id}
+					GROUP BY event_id
+				),
+				OrdersAggregationToday AS (
+					SELECT
+						event_id,
+						SUM(attributed_revenue) FILTER (WHERE promo_id IS NULL) as total_revenue,
+						SUM(attributed_revenue) FILTER (WHERE promo_id IS NOT NULL) as total_promo_revenue
+					FROM EventAttributedOrderRevenue
+					WHERE event_id = ${id}
+						AND (created AT TIME ZONE 'UTC' AT TIME ZONE 'America/Los_Angeles')::date = (now() AT TIME ZONE 'America/Los_Angeles')::date
+					GROUP BY event_id
+				)
 				SELECT
-					p.event_id,
-					p.name,
-					p.price,
-					p.promo,
-					SUM(p.price * i.quantity) FILTER (WHERE o.promo_id IS NULL) as total_revenue,
-					SUM(o.amount) FILTER (WHERE o.promo_id IS NOT NULL) as total_promo_revenue,
-					SUM(i.quantity) AS total_quantity
-				FROM products p
-				LEFT JOIN order_items i ON i.product_id = p.id
-				LEFT JOIN orders as o
-					ON o.id = i.order_id
-				WHERE 1 = 1
-					AND o.status <> 'canceled'
-					AND p.admission_tier IN ('general', 'vip')
-					AND p.event_id = ${id}
-				GROUP BY p.event_id, p.name, p.price, p.promo
-			),
-			OrdersAggregationToday AS (
-				SELECT
-					p.event_id as event_id,
-					SUM(p.price * i.quantity) FILTER (WHERE o.promo_id IS NULL) as total_revenue,
-					SUM(o.amount) FILTER (WHERE o.promo_id IS NOT NULL) as total_promo_revenue
-				FROM orders as o
-				LEFT JOIN order_items i
-					ON i.order_id = o.id
-				LEFT JOIN products p
-					ON p.id = i.product_id
-				WHERE (o.created AT TIME ZONE 'UTC' AT TIME ZONE 'America/Los_Angeles')::date = (now() AT TIME ZONE 'America/Los_Angeles')::date
-					AND p.event_id = ${id}
-				GROUP BY p.event_id
-			)
-			SELECT
-				e.id as event_id,
-				e.budget as event_budget,
-				e.max_capacity as event_max_capacity,
-				e.alcohol_revenue as alcohol_revenue,
-				e.food_revenue as food_revenue,
-				COALESCE(
-					ARRAY_AGG(
-						JSON_BUILD_OBJECT(
-							'name', pa.name,
-							'quantity', pa.total_quantity,
-							'price', pa.price
-						)
-					) FILTER (WHERE NOT pa.promo),
-					'{}'::json[]
-				) as sales_tiers,
-				SUM(pa.price * pa.total_quantity) as total_revenue,
-				SUM(pa.total_promo_revenue) as total_promo_revenue,
-				coalesce(oa.total_revenue, 0) as revenue_today,
-				coalesce(oa.total_promo_revenue, 0) as promo_revenue_today
-			FROM events as e
-			LEFT JOIN ProductAggregation as pa
-				ON e.id = pa.event_id
-			LEFT JOIN OrdersAggregationToday as oa
-				ON e.id = oa.event_id
-			WHERE e.id = ${id}
-			GROUP BY e.id, revenue_today, promo_revenue_today
-		`
+					e.id as event_id,
+					e.budget as event_budget,
+					e.max_capacity as event_max_capacity,
+					e.alcohol_revenue as alcohol_revenue,
+					e.food_revenue as food_revenue,
+					COALESCE(
+						ARRAY_AGG(
+							JSON_BUILD_OBJECT(
+								'name', pa.name,
+								'quantity', pa.total_quantity,
+								'price', pa.price
+							)
+						) FILTER (WHERE NOT pa.promo),
+						'{}'::json[]
+					) as sales_tiers,
+					COALESCE(MAX(oa.total_revenue), 0) as total_revenue,
+					COALESCE(MAX(oa.total_promo_revenue), 0) as total_promo_revenue,
+					COALESCE(MAX(oat.total_revenue), 0) as revenue_today,
+					COALESCE(MAX(oat.total_promo_revenue), 0) as promo_revenue_today
+				FROM events as e
+				LEFT JOIN ProductAggregation as pa
+					ON e.id = pa.event_id
+				LEFT JOIN OrdersAggregation as oa
+					ON e.id = oa.event_id
+				LEFT JOIN OrdersAggregationToday as oat
+					ON e.id = oat.event_id
+				WHERE e.id = ${id}
+				GROUP BY e.id
+			`
 		).map(
 			({ revenueToday, promoRevenueToday, totalRevenue, totalPromoRevenue, eventBudget, alcoholRevenue, foodRevenue, ...rest }): EventExtendedStats => ({
 				...rest,
