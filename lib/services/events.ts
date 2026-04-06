@@ -367,10 +367,7 @@ export async function getEventExtendedStats(id: string): Promise<EventExtendedSt
 						eoes.order_id,
 						vo.promo_id,
 						vo.created,
-						CASE
-							WHEN oes.order_effective_subtotal > 0 THEN vo.amount * (eoes.event_effective_subtotal / oes.order_effective_subtotal)
-							ELSE 0
-						END AS attributed_revenue
+						eoes.event_effective_subtotal AS attributed_revenue
 					FROM EventOrderEffectiveSubtotals AS eoes
 					JOIN OrderEffectiveSubtotals AS oes
 						ON oes.order_id = eoes.order_id
