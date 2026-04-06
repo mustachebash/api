@@ -55,14 +55,14 @@ export function sendReceipt(guestFirstName: string, guestLastName: string, guest
 		.send({
 			from: 'Mustache Bash Tickets <contact@mustachebash.com>',
 			to: guestFirstName + ' ' + guestLastName + ' <' + guestEmail + '> ',
-			subject: 'Your Tickets & Confirmation For Mustache Bash 2026',
+			subject: 'Your Tickets & Confirmation For Mustache Bash 2027',
 			html: `
 <!doctype html>
 <html>
 	<head>
 		<meta name="viewport" content="width=device-width">
 		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-		<title>The Mustache Bash 2026 Confirmation</title>
+		<title>The Mustache Bash 2027 Confirmation</title>
 		<style>
 @media only screen and (max-width: 620px) {
 	table[class=body] h1 {
@@ -165,7 +165,7 @@ table[class=body] .article {
 						<p style="font-family: sans-serif; font-size: 24px; font-weight: normal; margin: 0; margin-bottom: 15px;">
 														<strong><a style="color: #0e2245;" href="https://mustachebash.com/my-tickets?t=${orderToken}">VIEW TICKETS</a></strong>
 												</p>
-												<p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">We're thrilled you're coming to the 2026 Mustache Bash! Keep this confirmation for your records, and on Bash day, bring your tickets linked above (note: printouts and screenshots WILL NOT be accepted) along with a valid photo ID for each guest to get in. Do not forward this email or ticket link to anyone.</p>
+												<p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">We're thrilled you're coming to the 2027 Mustache Bash! Keep this confirmation for your records, and on Bash day, bring your tickets linked above (note: printouts and screenshots WILL NOT be accepted) along with a valid photo ID for each guest to get in. Do not forward this email or ticket link to anyone.</p>
 												<p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Check out our <a href="https://mustachebash.com/info?utm_source=confirmation-email">FAQ page</a> for more info, and reply here or email us at <a href="mailto:contact@mustachebash.com">contact@mustachebash.com</a> if you have questions about your purchase.</p>
 												<p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Thanks again, we can’t wait to boogie with you.</p>
 												<p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 35px;">
@@ -173,7 +173,7 @@ table[class=body] .article {
 										Team Mustache Bash
 												</p>
 												<p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">
-													<span style="font-family: sans-serif; font-size: 14px; font-weight: bold;">PS</span>, if you're looking for somewhere to crash after the Bash, grab a discounted room at the <a href="https://be.synxis.com/?Hotel=64070&Chain=17551&arrive=2025-03-20&adult=1&promo=STACHE">Bahia</a>, <a href="https://res.windsurfercrs.com/ibe/details.aspx?propertyid=17116&nights=2&checkin=3/20/2026&group=MUSTACHEBASH26&lang=en-us&adults=2">Dana</a>, or <a href="https://www.hyatt.com/events/en-US/group-booking/SANIS/G-MUZ6">Hyatt</a> before they're all gone!
+													<span style="font-family: sans-serif; font-size: 14px; font-weight: bold;">PS</span>, if you're looking for somewhere to crash after the Bash, grab a discounted room at the <a href="https://be.synxis.com/?Hotel=64070&Chain=17551&arrive=2025-03-20&adult=1&promo=STACHE">Bahia</a>, <a href="https://res.windsurfercrs.com/ibe/details.aspx?propertyid=17116&nights=2&checkin=3/20/2027&group=MUSTACHEBASH26&lang=en-us&adults=2">Dana</a>, or <a href="https://www.hyatt.com/events/en-US/group-booking/SANIS/G-MUZ6">Hyatt</a> before they're all gone!
 												</p>
 											</td>
 										</tr>
@@ -216,14 +216,14 @@ export function sendUpgradeReceipt(customerFirstName: string, customerLastName: 
 		.send({
 			from: 'Mustache Bash Tickets <contact@mustachebash.com>',
 			to: customerFirstName + ' ' + customerLastName + ' <' + customerEmail + '> ',
-			subject: 'Your VIP Upgrade Confirmation For Mustache Bash 2026',
+			subject: 'Your VIP Upgrade Confirmation For Mustache Bash 2027',
 			html: `
 <!doctype html>
 <html>
 	<head>
 		<meta name="viewport" content="width=device-width">
 		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-		<title>The Mustache Bash 2026 Confirmation</title>
+		<title>The Mustache Bash 2027 Confirmation</title>
 		<style>
 @media only screen and (max-width: 620px) {
 	table[class=body] h1 {
@@ -324,7 +324,7 @@ table[class=body] .article {
 									<strong>Total:</strong> $${amount}
 												</p>
 
-												<p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">We're thrilled you're coming to the 2026 Mustache Bash in VIP style! Use the ticket link in your original order to access your newly upgraded tickets.</p>
+												<p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">We're thrilled you're coming to the 2027 Mustache Bash in VIP style! Use the ticket link in your original order to access your newly upgraded tickets.</p>
 												<p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Check out our <a href="https://mustachebash.com/info?utm_source=confirmation-email">FAQ page</a> for more info, and reply here or email us at <a href="mailto:contact@mustachebash.com">contact@mustachebash.com</a> if you have questions about your purchase.</p>
 												<p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Thanks again, we can’t wait to boogie with you.</p>
 												<p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">
@@ -477,7 +477,7 @@ table[class=body] .article {
 												<p style="font-family: sans-serif; font-size: 24px; font-weight: normal; margin: 0; margin-bottom: 15px;">
 														<strong><a style="color: #0e2245;" href="https://mustachebash.com/my-tickets?t=${orderToken}">VIEW TICKETS</a></strong>
 												</p>
-												<p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">We're thrilled you're coming to the 2026 Mustache Bash! On Bash day, bring your tickets linked above (note: printouts and screenshots WILL NOT be accepted) along with a valid photo ID to get in. Do not forward this email or ticket link to anyone.</p>
+												<p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">We're thrilled you're coming to the 2027 Mustache Bash! On Bash day, bring your tickets linked above (note: printouts and screenshots WILL NOT be accepted) along with a valid photo ID to get in. Do not forward this email or ticket link to anyone.</p>
 												<p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Check out our <a href="https://mustachebash.com/info?utm_source=comp-email">FAQ page</a> for more info, and reply here or email us at <a href="mailto:contact@mustachebash.com">contact@mustachebash.com</a> if you have questions.</p>
 												<p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Thanks again, we can't wait to boogie with you.</p>
 												<p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 35px;">
@@ -525,7 +525,7 @@ export function sendTransfereeConfirmation(transfereeFirstName: string, transfer
 		.send({
 			from: 'Mustache Bash Tickets <contact@mustachebash.com>',
 			to: transfereeFirstName + ' ' + transfereeLastName + ' <' + transfereeEmail + '> ',
-			subject: 'Your Tickets & Transfer Confirmation For San Diego Mustache Bash 2026',
+			subject: 'Your Tickets & Transfer Confirmation For San Diego Mustache Bash 2027',
 			html: `
 <!doctype html>
 <html>
@@ -633,7 +633,7 @@ table[class=body] .article {
 						<p style="font-family: sans-serif; font-size: 18px; font-weight: normal; margin: 0; margin-bottom: 15px;">
 														<strong><a style="color: #0e2245;" href="https://mustachebash.com/my-tickets?t=${orderToken}">VIEW TICKETS</a></strong>
 												</p>
-												<p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">We're thrilled you're coming to the 2026 Mustache Bash! Keep this confirmation for your records, and on Bash day, bring your tickets linked above (note: printouts and screenshots WILL NOT be accepted) along with a valid photo ID for each guest to get in. Do not forward this email or ticket link to anyone.</p>
+												<p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">We're thrilled you're coming to the 2027 Mustache Bash! Keep this confirmation for your records, and on Bash day, bring your tickets linked above (note: printouts and screenshots WILL NOT be accepted) along with a valid photo ID for each guest to get in. Do not forward this email or ticket link to anyone.</p>
 												<p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Check out our <a href="https://mustachebash.com/info?utm_source=confirmation-email">FAQ page</a> for more info, and reply here or email us at <a href="mailto:contact@mustachebash.com">contact@mustachebash.com</a> if you have questions about your purchase.</p>
 												<p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Thanks again, we can’t wait to boogie with you.</p>
 												<p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">

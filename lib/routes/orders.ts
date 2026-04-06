@@ -10,7 +10,7 @@ import { AppContext } from '../index.js';
 
 // TODO: make this configurable at some point
 const EMAIL_LIST = '90392ecd5e',
-	EMAIL_TAG = 'Mustache Bash 2026 Attendee';
+	EMAIL_TAG = 'Mustache Bash 2027 Attendee';
 
 const ordersRouter = new Router<AppContext['state'], AppContext>({
 	prefix: '/orders'

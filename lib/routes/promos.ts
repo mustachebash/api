@@ -9,7 +9,7 @@ import { validatePromoCreate } from '../utils/validation.js';
 import { AppContext } from '../index.js';
 
 const EMAIL_LIST = '90392ecd5e',
-	EMAIL_TAG = 'Mustache Bash 2026 Attendee';
+	EMAIL_TAG = 'Mustache Bash 2027 Attendee';
 
 const promosRouter = new Router<AppContext['state'], AppContext>({
 	prefix: '/promos'
