@@ -172,9 +172,6 @@ table[class=body] .article {
 														Stay Funky,<br>
 										Team Mustache Bash
 												</p>
-												<p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">
-													<span style="font-family: sans-serif; font-size: 14px; font-weight: bold;">PS</span>, if you're looking for somewhere to crash after the Bash, grab a discounted room at the <a href="https://be.synxis.com/?Hotel=64070&Chain=17551&arrive=2025-03-20&adult=1&promo=STACHE">Bahia</a>, <a href="https://res.windsurfercrs.com/ibe/details.aspx?propertyid=17116&nights=2&checkin=3/20/2027&group=MUSTACHEBASH26&lang=en-us&adults=2">Dana</a>, or <a href="https://www.hyatt.com/events/en-US/group-booking/SANIS/G-MUZ6">Hyatt</a> before they're all gone!
-												</p>
 											</td>
 										</tr>
 									</table>
