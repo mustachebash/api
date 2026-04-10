@@ -7,12 +7,30 @@ import crypto from 'crypto';
 import * as config from '../config.js';
 import log from '../utils/log.js';
 import MailgunJs from 'mailgun-js';
-import MailChimpClient from 'mailchimp-api-v3';
 
 const mailgun = MailgunJs({ apiKey: config.mailgun.apiKey, domain: config.mailgun.domain });
 
-const mailchimp = new MailChimpClient(config.mailchimp.apiKey),
-	md5 = (string: string) => crypto.createHash('md5').update(string).digest('hex');
+if (!config.mailchimp.apiKey) throw new Error('Mailchimp API key config is not set');
+const mailchimpDataCenter = config.mailchimp.apiKey.split('-')[1];
+if (!mailchimpDataCenter) throw new Error('Mailchimp API key format is invalid');
+
+const md5 = (string: string) => crypto.createHash('md5').update(string).digest('hex');
+
+async function callMailchimp(method: 'PUT' | 'POST', path: string, body: unknown) {
+	const response = await fetch(`https://${mailchimpDataCenter}.api.mailchimp.com/3.0${path}`, {
+		method,
+		headers: {
+			authorization: `apikey ${config.mailchimp.apiKey}`,
+			'content-type': 'application/json'
+		},
+		body: JSON.stringify(body)
+	});
+
+	if (!response.ok) {
+		const responseText = await response.text();
+		throw new Error(`Mailchimp API request failed (${response.status}): ${responseText}`);
+	}
+}
 
 /**
  * This will upsert a member into a list with first and last names, subscribe by default (but leave existing statuses in place)
@@ -28,7 +46,7 @@ export async function upsertEmailSubscriber(listId: string, { email, firstName, 
 	const memberHash = md5(email.toLowerCase());
 
 	try {
-		await mailchimp.put(`/lists/${listId}/members/${memberHash}`, {
+		await callMailchimp('PUT', `/lists/${listId}/members/${memberHash}`, {
 			email_address: email,
 			status_if_new: 'subscribed',
 			merge_fields: {
@@ -38,7 +56,7 @@ export async function upsertEmailSubscriber(listId: string, { email, firstName, 
 		});
 
 		if (tags.length) {
-			await mailchimp.post(`/lists/${listId}/members/${memberHash}/tags`, {
+			await callMailchimp('POST', `/lists/${listId}/members/${memberHash}/tags`, {
 				tags: tags.map(tag => ({ name: tag, status: 'active' }))
 			});
 		}
