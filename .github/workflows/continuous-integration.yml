@@ -21,7 +21,7 @@ jobs:
           node-version: '25.8'
           cache: 'npm'
 
-      - run: npm cit
+      - run: npm ci
 
       - name: Docker meta
         id: meta
