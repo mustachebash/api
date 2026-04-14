@@ -21,7 +21,25 @@ class ProductsServiceError extends Error {
 	}
 }
 
-const productColumns = ['id', 'status', 'type', 'name', 'description', 'admission_tier', 'price', 'event_id', 'target_product_id', 'promo', 'max_quantity', 'created', 'updated', 'updated_by', 'meta'];
+const productColumns = [
+	'id',
+	'status',
+	'type',
+	'name',
+	'description',
+	'admission_tier',
+	'price',
+	'event_id',
+	'target_product_id',
+	'promo',
+	'max_quantity',
+	'available_from',
+	'available_until',
+	'created',
+	'updated',
+	'updated_by',
+	'meta'
+];
 
 const convertPriceToNumber = (p: ProductRow): Product => ({ ...p, price: Number(p.price) });
 
@@ -34,6 +52,8 @@ export type Product = {
 	description: string;
 	type: ProductType;
 	maxQuantity: number | null;
+	availableFrom?: Date | string | null;
+	availableUntil?: Date | string | null;
 	eventId?: string;
 	admissionTier?: string;
 	targetProductId?: string;
@@ -46,7 +66,7 @@ export type Product = {
 
 type ProductRow = Omit<Product, 'price'> & { price: string };
 
-export async function createProduct({ price, name, description, type, maxQuantity, eventId, admissionTier, targetProductId, promo, meta }: Omit<Product, 'id'>) {
+export async function createProduct({ price, name, description, type, maxQuantity, availableFrom, availableUntil, eventId, admissionTier, targetProductId, promo, meta }: Omit<Product, 'id'>) {
 	if (!name || !description || !type) throw new ProductsServiceError('Missing product data', 'INVALID');
 	if (typeof price !== 'number') throw new ProductsServiceError('Price must be a number', 'INVALID');
 	if (type === 'ticket' && (!eventId || !admissionTier)) throw new ProductsServiceError('No event set for ticket', 'INVALID');
@@ -60,6 +80,8 @@ export async function createProduct({ price, name, description, type, maxQuantit
 		description,
 		type,
 		maxQuantity: maxQuantity || null,
+		availableFrom: availableFrom || null,
+		availableUntil: availableUntil || null,
 		meta: {
 			...meta
 		}
@@ -142,7 +164,8 @@ export async function getProduct(id: string) {
 export async function updateProduct(id: string, updates: Record<string, unknown>) {
 	for (const u in updates) {
 		// Update whitelist
-		if (!['name', 'price', 'description', 'status', 'maxQuantity', 'meta', 'updatedBy'].includes(u)) throw new ProductsServiceError('Invalid product data', 'INVALID');
+		if (!['name', 'price', 'description', 'status', 'maxQuantity', 'availableFrom', 'availableUntil', 'meta', 'updatedBy'].includes(u))
+			throw new ProductsServiceError('Invalid product data', 'INVALID');
 	}
 
 	if (Object.keys(updates).length === 1 && updates.updatedBy) throw new ProductsServiceError('Invalid product data', 'INVALID');
@@ -164,4 +187,54 @@ export async function updateProduct(id: string, updates: Record<string, unknown>
 	if (!product) throw new ProductsServiceError('product not found', 'NOT_FOUND');
 
 	return product;
+}
+
+export async function syncScheduledProductAvailability({ updatedBy = null }: { updatedBy?: string | null } = {}) {
+	try {
+		const activatedProducts = (
+			await sql<ProductRow[]>`
+				WITH sold_counts AS (
+					SELECT
+						p.id AS product_id,
+						COALESCE(SUM(oi.quantity), 0) AS total_sold
+					FROM products AS p
+					LEFT JOIN order_items AS oi
+						ON oi.product_id = p.id
+					LEFT JOIN orders AS o
+						ON o.id = oi.order_id
+						AND o.status != 'canceled'
+					GROUP BY p.id
+				)
+				UPDATE products AS p
+				SET status = 'active', updated = now(), updated_by = ${updatedBy}
+				FROM sold_counts AS sc
+				WHERE p.id = sc.product_id
+					AND p.status = 'inactive'
+					AND p.available_from IS NOT NULL
+					AND p.available_from > now() - interval '10 minutes'
+					AND p.available_from <= now()
+					AND (p.max_quantity IS NULL OR sc.total_sold < p.max_quantity)
+				RETURNING ${sql(productColumns.map(c => `p.${c}`))}
+			`
+		).map(convertPriceToNumber);
+
+		const archivedProducts = (
+			await sql<ProductRow[]>`
+				UPDATE products AS p
+				SET status = 'archived', updated = now(), updated_by = ${updatedBy}
+				WHERE p.status = 'active'
+					AND p.available_until IS NOT NULL
+					AND p.available_until > now() - interval '10 minutes'
+					AND p.available_until <= now()
+				RETURNING ${sql(productColumns.map(c => `p.${c}`))}
+			`
+		).map(convertPriceToNumber);
+
+		return {
+			activatedProducts,
+			archivedProducts
+		};
+	} catch (e) {
+		throw new ProductsServiceError('Could not sync scheduled product availability', 'UNKNOWN', e);
+	}
 }
