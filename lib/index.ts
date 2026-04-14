@@ -6,6 +6,7 @@ import cors from '@koa/cors';
 import { v4 as uuidV4 } from 'uuid';
 import log, { Logger } from './utils/log.js';
 import apiRouter from './routes/index.js';
+import { syncScheduledProductAvailability } from './services/products.js';
 
 type JSONValue = string | number | boolean | null | { [x: string]: JSONValue | unknown } | JSONValue[];
 
@@ -195,4 +196,31 @@ app.on('error', (err, ctx) => {
 	}
 });
 
-app.listen(4000, () => log.info(`Mustache Bash API ${process.env.npm_package_version} listening on port 4000`));
+const productAvailabilityPollIntervalMs = 60 * 1000;
+
+async function runScheduledProductAvailabilitySync() {
+	try {
+		const { activatedProducts, archivedProducts } = await syncScheduledProductAvailability();
+
+		if (activatedProducts.length || archivedProducts.length) {
+			log.info(
+				{
+					activatedProductIds: activatedProducts.map(product => product.id),
+					archivedProductIds: archivedProducts.map(product => product.id)
+				},
+				'Synced scheduled product availability'
+			);
+		}
+	} catch (err) {
+		log.error({ err }, 'Scheduled product availability sync failed');
+	}
+}
+
+app.listen(4000, () => {
+	log.info(`Mustache Bash API ${process.env.npm_package_version} listening on port 4000`);
+
+	void runScheduledProductAvailabilitySync();
+	setInterval(() => {
+		void runScheduledProductAvailabilitySync();
+	}, productAvailabilityPollIntervalMs);
+});

@@ -189,6 +189,8 @@ export async function createOrder({ paymentMethodNonce, cart = [], customer = {}
 			ON p.id = oi.product_id
 		WHERE p.id in ${sql(cart.map(i => i.productId))}
 		AND status = 'active'
+		AND (p.available_from IS NULL OR p.available_from <= now())
+		AND (p.available_until IS NULL OR p.available_until > now() - interval '5 minutes')
 		GROUP BY 1
 	`
 	).map(p => ({
@@ -205,6 +207,8 @@ export async function createOrder({ paymentMethodNonce, cart = [], customer = {}
 		WHERE p.type = 'bundle-ticket'
 		AND p.target_product_id in ${sql(products.map(i => i.id))}
 		AND status = 'active'
+		AND (p.available_from IS NULL OR p.available_from <= now())
+		AND (p.available_until IS NULL OR p.available_until > now() - interval '5 minutes')
 	`
 	).map(p => ({
 		...p,
