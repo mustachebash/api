@@ -84,6 +84,8 @@ export type ProductCreateInput = {
 	description: string;
 	type: ProductType;
 	maxQuantity: number | null;
+	availableFrom?: string | Date | null;
+	availableUntil?: string | Date | null;
 	eventId?: string;
 	admissionTier?: string;
 	targetProductId?: string;
@@ -97,6 +99,8 @@ export type ProductUpdateInput = {
 	description?: string;
 	status?: string;
 	maxQuantity?: number | null;
+	availableFrom?: string | Date | null;
+	availableUntil?: string | Date | null;
 	meta?: Record<string, unknown>;
 };
 
@@ -416,6 +420,14 @@ export function validateProductCreate(body: unknown): ValidationResult<ProductCr
 		data.maxQuantity = body.maxQuantity;
 	}
 
+	if (body.availableFrom !== undefined) {
+		data.availableFrom = body.availableFrom as string | Date | null;
+	}
+
+	if (body.availableUntil !== undefined) {
+		data.availableUntil = body.availableUntil as string | Date | null;
+	}
+
 	if (body.eventId !== undefined) {
 		data.eventId = body.eventId as string;
 	}
@@ -485,6 +497,14 @@ export function validateProductUpdate(body: unknown): ValidationResult<ProductUp
 			return { valid: false, error: 'maxQuantity must be a number or null if provided' };
 		}
 		data.maxQuantity = body.maxQuantity as number | null;
+	}
+
+	if (body.availableFrom !== undefined) {
+		data.availableFrom = body.availableFrom as string | Date | null;
+	}
+
+	if (body.availableUntil !== undefined) {
+		data.availableUntil = body.availableUntil as string | Date | null;
 	}
 
 	if (body.meta !== undefined) {
