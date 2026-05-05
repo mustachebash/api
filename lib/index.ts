@@ -213,6 +213,10 @@ async function runScheduledProductAvailabilitySync() {
 		}
 	} catch (err) {
 		log.error({ err }, 'Scheduled product availability sync failed');
+	} finally {
+		setTimeout(() => {
+			void runScheduledProductAvailabilitySync();
+		}, productAvailabilityPollIntervalMs);
 	}
 }
 
@@ -220,7 +224,4 @@ app.listen(4000, () => {
 	log.info(`Mustache Bash API ${process.env.npm_package_version} listening on port 4000`);
 
 	void runScheduledProductAvailabilitySync();
-	setInterval(() => {
-		void runScheduledProductAvailabilitySync();
-	}, productAvailabilityPollIntervalMs);
 });
